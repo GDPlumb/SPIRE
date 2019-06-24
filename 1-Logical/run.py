@@ -1,8 +1,5 @@
 
-# TODO
-# Separate data gen and heuristic (put into a class that you pass)
-# Create reguglarizer classes (pass the perturbation function)
-
+import json
 import math
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -24,12 +21,18 @@ import os
 # The networks are small enough that training is faster on CPU
 os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
+def perturb(x, indices):
+    x_new = np.copy(x)
+    for i in indices:
+        x_new[i] += np.random.uniform(low = -0.1, high = 0.1)
+    return x_new
+
 def run(problem, num_data = 500, num_plot = 500,
         objective = "binary_classification",
         hidden_layer_sizes = [10, 10],
         batch_size = 8, learning_rate = 0.01,
         min_epochs = 100, stopping_epochs = 50,  tol = 0.001,
-        heuristics = None):
+        heuristics = None, checks = None):
     
     # Setup working directory
     cwd = os.getcwd()
@@ -54,7 +57,6 @@ def run(problem, num_data = 500, num_plot = 500,
     
     x_t, x_v, y_t, y_v = train_test_split(x, y, test_size = 0.25)
 
-    # TODO:  Return a feed_dict based on whether or not we are regularizing
     bm = BatchManager(x_t, y_t, batch_size)
     
     n_input = x.shape[1]
@@ -181,6 +183,23 @@ def run(problem, num_data = 500, num_plot = 500,
         plt.savefig("out.pdf")
 
         plt.close()
+
+        # Evaluate whether or not the heuristic was actually enforced on the validation set
+        diffs = np.zeros((3))
+        for i in range(x_v.shape[0]):
+            x = x_v[i, :]
+            x_pred = sess.run(pred, feed_dict = {X: np.reshape(x, (1,4))})
+            
+            c = 0
+            for indices in [[2], [3], [2,3]]:
+                x_new = perturb(x, indices)
+                x_pred_pert = sess.run(pred, feed_dict = {X: np.reshape(x_new, (1,4))})
+
+                diffs[c] += (x_pred - x_pred_pert)**2
+                c += 1
+        diffs /= x_v.shape[0]
+        with open("tests.txt", "w") as outfile:
+            json.dump(diffs.tolist(), outfile)
 
         os.chdir(cwd)
 
