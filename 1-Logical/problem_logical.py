@@ -11,7 +11,8 @@ class Logical():
     
     def gen_bad(self, n):
         X = self.gen(n)
-        return np.hstack((X,X))
+        X_pert = X + np.random.uniform(low = -0.05, high = 0.05, size = X.shape)
+        return np.hstack((X,X_pert))
     
     def gen_zeros(self, n):
         X = self.gen(n)
