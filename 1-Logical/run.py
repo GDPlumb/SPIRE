@@ -24,15 +24,22 @@ import os
 # The networks are small enough that training is faster on CPU
 os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 
-def run(problem, n, objective,
-        hidden_layer_sizes,
-        min_epochs = 100, stopping_epochs = 10, batch_size = 8, learning_rate = 0.01, tol = 0.0005,
-        reg = False):
+def run(problem, num_data = 500, num_plot = 500,
+        objective = "binary_classification",
+        hidden_layer_sizes = [10, 10],
+        batch_size = 8, learning_rate = 0.01,
+        min_epochs = 100, stopping_epochs = 50,  tol = 0.001,
+        heuristics = None):
     
-    if not reg:
-        os.chdir("unreg")
+    # Setup working directory
+    cwd = os.getcwd()
+    name = "TB/"
+    if heuristics is not None:
+        name += str(heuristics)
     else:
-        os.chdir("reg")
+        name += "none/"
+    os.makedirs(name)
+    os.chdir(name)
 
     # Allow multiple sessions on a single GPU.
     tf_config = tf.ConfigProto()
@@ -42,17 +49,18 @@ def run(problem, n, objective,
     tf.reset_default_graph()
 
     # Generate the data
-    x = problem.gen_bad(n)
+    x = problem.gen_bad(num_data)
     y = problem.label(x)
     
-    x_t, x_v, y_t, y_v = train_test_split(x, y, test_size = 0.2)
-    
+    x_t, x_v, y_t, y_v = train_test_split(x, y, test_size = 0.25)
+
+    # TODO:  Return a feed_dict based on whether or not we are regularizing
     bm = BatchManager(x_t, y_t, batch_size)
     
     n_input = x.shape[1]
     n_out = y.shape[1]
     
-    # Graph INputs
+    # Graph Inputs
     X = tf.placeholder("float", [None, n_input], name = "X_in")
     Y = tf.placeholder("float", [None, n_out], name = "Y_in")
 
@@ -73,20 +81,20 @@ def run(problem, n, objective,
         
         pred_binary = tf.round(tf.nn.sigmoid(pred))
 
-        _, perf_op = tf.metrics.accuracy(labels = Y, predictions = pred_binary)
+        perf_op = tf.reduce_mean(tf.cast(tf.equal(Y, pred_binary), tf.float32)) #tf.metrics.accuracy(labels = Y, predictions = pred_binary)
         tf.summary.scalar("Metrics/Acc", perf_op)
 
     loss_op = model_loss
       
-    # Hueristics
-    X_reg = tf.placeholder("float", [None, n_input], name = "X_reg") #TODO: Don't need to pass this for unregularized model
-    if reg:
+    # Add the heuristics to the loss
+    X_reg = tf.placeholder("float", [None, n_input], name = "X_reg")
+    if heuristics is not None:
 
         with tf.variable_scope("model", reuse = tf.AUTO_REUSE):
             pred_reg = network.model(X_reg)
 
         c = 0
-        for item in problem.heuristics:
+        for item in heuristics:
             with tf.name_scope("heuristic_" + str(c)) as scope:
                 if item[0] == "inv":
                     pred_reg_pert = Invariance(network, X_reg, item[1], item[2])
@@ -127,16 +135,16 @@ def run(problem, n, objective,
                 break
 
             # Run a training epoch
-            total_batch = int(n / batch_size)
+            total_batch = int(num_data / batch_size)
             for i in range(total_batch):
                 x_b, y_b = bm.next_batch()
                 sess.run(train_op, feed_dict = {X: x_b, Y: y_b, X_reg: x_b})
+                
+            summary_train = sess.run(summary_op, feed_dict = {X: x_t, Y: y_t, X_reg: x_t})
+            train_writer.add_summary(summary_train, epoch)
             
-            summary = sess.run(summary_op, feed_dict = {X: x_t, Y: y_t, X_reg: x_t})
-            train_writer.add_summary(summary, epoch)
-            
-            summary, val_perf = sess.run([summary_op, perf_op], feed_dict = {X: x_v, Y: y_v, X_reg: x_v})
-            val_writer.add_summary(summary, epoch)
+            summary_val, val_perf = sess.run([summary_op, perf_op], feed_dict = {X: x_v, Y: y_v, X_reg: x_v})
+            val_writer.add_summary(summary_val, epoch)
             
             if val_perf > best_perf + tol:
                 best_epoch = epoch
@@ -149,16 +157,15 @@ def run(problem, n, objective,
         saver.restore(sess, "./model.cpkt")
 
         # Plot the learned function for dim 0 and 1
-        n = 500
         c = 1
         for eval in ["bad", "random", "zeros"]:
         
             if eval == "bad":
-                x = problem.gen_bad(n)
+                x = problem.gen_bad(num_plot)
             elif eval == "random":
-                x = problem.gen_random(n)
+                x = problem.gen_random(num_plot)
             elif eval == "zeros":
-                x = problem.gen_zeros(n)
+                x = problem.gen_zeros(num_plot)
 
             y_hat = sess.run(pred_binary, feed_dict = {X: x})
 
@@ -175,9 +182,9 @@ def run(problem, n, objective,
 
         plt.close()
 
-        os.chdir("..")
+        os.chdir(cwd)
 
-problem = Logical([["inv", 2, 0.1, 100.0], ["inv", 3, 0.1, 100.0]])
-run(problem, 100, "binary_classification", [5,5])
-run(problem, 100, "binary_classification", [5,5], reg = True)
-
+problem = Logical()
+run(problem)
+run(problem, heuristics = [["inv", 2, 0.1, 1000.0], ["inv", 3, 0.1, 1000.0]])
+run(problem, heuristics = [["inv", 2, 0.1, 1000.0]])

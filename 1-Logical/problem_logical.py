@@ -3,9 +3,9 @@ import numpy as np
 
 class Logical():
 
-    def __init__(self, heuristics = None):
-        self.heuristics = heuristics
-
+    def __init__(self):
+        pass
+        
     def gen(self, n):
         return np.random.uniform(size = (n,2))
     
