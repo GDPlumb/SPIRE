@@ -1,8 +1,8 @@
 
 import tensorflow as tf
 
-def Invariance(network, X_reg, d, v):
-    with tf.variable_scope("invariance_" + str(d) + "_" + str(v)):
+def PredPert(network, X_reg, d, v):
+    with tf.variable_scope("PredPert_" + str(d) + "_" + str(v)):
         dim = tf.shape(X_reg)[1]
         noise = tf.random_uniform([tf.shape(X_reg)[0],1], minval = -1.0 * v, maxval = -1.0 * v)
         if d == 0:
@@ -15,3 +15,7 @@ def Invariance(network, X_reg, d, v):
         pred_reg_pert = network.model(X_reg_pert)
 
         return pred_reg_pert
+
+def Invariance(network, X_reg, d, v, pred_reg, w):
+    pred_reg_pert = PredPert(network, X_reg, d, v)
+    return w * tf.losses.mean_squared_error(labels = pred_reg, predictions = pred_reg_pert)

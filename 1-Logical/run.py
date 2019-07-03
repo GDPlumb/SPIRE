@@ -99,9 +99,8 @@ def run(problem, num_data = 500, num_plot = 500,
         for item in heuristics:
             with tf.name_scope("heuristic_" + str(c)) as scope:
                 if item[0] == "inv":
-                    pred_reg_pert = Invariance(network, X_reg, item[1], item[2])
+                    reg_loss = Invariance(network, X_reg, item[1], item[2], pred_reg, item[3])
 
-                reg_loss = item[3] * tf.losses.mean_squared_error(labels = pred_reg, predictions = pred_reg_pert)
                 tf.summary.scalar("Loss/reg_" + str(c), reg_loss)
                 
                 loss_op += reg_loss
