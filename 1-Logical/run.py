@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, "../Code/")
 from Models import MLP
 from DataManager import BatchManager
-from Regularizers import Invariance
+from Regularizers import Invariance, Monotonicity
 
 import os
 # The networks are small enough that training is faster on CPU
@@ -100,10 +100,12 @@ def run(problem, num_data = 500, num_plot = 500,
             with tf.name_scope("heuristic_" + str(c)) as scope:
                 if item[0] == "inv":
                     reg_loss = Invariance(network, X_reg, item[1], item[2], pred_reg, item[3])
+                elif item[0] == "mon":
+                    reg_loss = Monotonicity(network, X_reg, item[1], item[2], pred_reg, item[3], item[4])
 
-                tf.summary.scalar("Loss/reg_" + str(c), reg_loss)
+            tf.summary.scalar("Loss/reg_" + str(c), reg_loss)
                 
-                loss_op += reg_loss
+            loss_op += reg_loss
                 
             c += 1
     
@@ -184,18 +186,31 @@ def run(problem, num_data = 500, num_plot = 500,
         plt.close()
 
         # Evaluate whether or not the heuristic was actually enforced on the validation set
-        diffs = np.zeros((3))
+        diffs = np.zeros((6))
         for i in range(x_v.shape[0]):
             x = x_v[i, :]
             x_pred = sess.run(pred, feed_dict = {X: np.reshape(x, (1,4))})
             
             c = 0
+            
+            # Evaluate invariance
             for indices in [[2], [3], [2,3]]:
                 x_new = perturb(x, indices)
                 x_pred_pert = sess.run(pred, feed_dict = {X: np.reshape(x_new, (1,4))})
 
                 diffs[c] += (x_pred - x_pred_pert)**2
                 c += 1
+                
+            # Evaluate monotonicity
+            for index in [0, 1, 2]:
+                x_new = np.copy(x)
+                x_new[index] += 0.05
+                
+                x_pred_pert = sess.run(pred, feed_dict = {X: np.reshape(x_new, (1,4))})
+                
+                diffs[c] += x_pred_pert - x_pred
+                c += 1
+                
         diffs /= x_v.shape[0]
         with open("tests.txt", "w") as outfile:
             json.dump(diffs.tolist(), outfile)
@@ -204,5 +219,17 @@ def run(problem, num_data = 500, num_plot = 500,
 
 problem = Logical()
 run(problem)
-run(problem, heuristics = [["inv", 2, 0.1, 1000.0], ["inv", 3, 0.1, 1000.0]])
+
+# Show the effects of discouraging the use of one or both of the 'bad' features
 run(problem, heuristics = [["inv", 2, 0.1, 1000.0]])
+run(problem, heuristics = [["inv", 2, 0.1, 1000.0], ["inv", 3, 0.1, 1000.0]])
+
+# Show that the monotonicity constraints can be without harming learning
+run(problem, heuristics = [["mon", 0, 0.1, 1.0, 1.0]])
+run(problem, heuristics = [["mon", 0, 0.1, 1.0, 1.0], ["mon", 1, 0.1, 1.0, 1.0]])
+
+# Show that the monotonicity constraints can be used to harm learning (to verify that they work)
+run(problem, heuristics = [["mon", 0, 0.1, 0.1, -1.0], ["mon", 2, 0.1, 0.1, -1.0]])
+run(problem, heuristics = [["mon", 0, 0.1, 1.0, -1.0], ["mon", 2, 0.1, 1.0, -1.0]])
+run(problem, heuristics = [["mon", 0, 0.1, 10.0, -1.0], ["mon", 2, 0.1, 10.0, -1.0]])
+
