@@ -17,5 +17,5 @@ class LowDensity():
         n = X.shape[0]
         y = np.zeros((n,1))
         for i in range(n):
-            y[i] = (X[i, 0] - 0.4) ** 2 + noise * np.random.normal()
+            y[i] = 10 * ((X[i, 0] - 0.0) ** 2 + noise * np.random.normal())
         return y

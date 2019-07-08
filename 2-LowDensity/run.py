@@ -11,9 +11,14 @@ import sys
 sys.path.insert(0, "../Code/")
 from train import train_eval
 
-def eval(sess, pred, X):
+def eval(sess, pred, X, n = 500):
 
         problem = LowDensity()
+        
+        # Get test accuracy
+        x = problem.gen(n)
+        y = problem.label(x, noise = 0.0)
+        acc_noiseless = np.mean((sess.run(pred, feed_dict = {X: x}) - y)**2)
     
         # Visualize the MSE across the two dimensions
         values = np.linspace(0, 1, 100)
@@ -28,6 +33,7 @@ def eval(sess, pred, X):
         grid_pred = sess.run(pred, feed_dict = {X: grid})
         grid_y = problem.label(grid, noise = 0.0)
         grid_error = np.transpose(np.reshape(grid_pred - grid_y, (100, 100)))
+        acc_grid = np.mean(grid_error ** 2)
 
         plt.imshow(grid_error)
         plt.title("Difference between predicted and true value")
@@ -70,7 +76,8 @@ def eval(sess, pred, X):
         diffs /= 10000
 
         out = {}
-        out["Model MSE"] = np.mean(grid_error ** 2)
+        out["Model MSE across noiseless samples"] = acc_noiseless
+        out["Model MSE across uniform grid"] = acc_grid
         out["MSE of perturbing Feature 1"] = diffs[0]
         out["Mean Increase of increasing Feature 0"] = diffs[1]
         out["Mean Increase of increasing Feature 1"] = diffs[2]
@@ -78,7 +85,7 @@ def eval(sess, pred, X):
             json.dump(out, outfile)
 
 problem = LowDensity()
-x = problem.gen(100)
+x = problem.gen(500)
 y = problem.label(x)
 
 train_eval(x, y, "regression", eval_func = eval)
@@ -87,10 +94,7 @@ train_eval(x, y, "regression", eval_func = eval, heuristics = [["inv", 1, 0.1, 1
 
 train_eval(x, y, "regression", eval_func = eval, heuristics = [["mon", 0, 0.1, 0.1, 1.0]])
 
+train_eval(x, y, "regression", eval_func = eval, heuristics = [["mon", 0, 0.1, 1000.0, -1.0], ["inv", 1, 0.1, 1000.0]])
+
+
 train_eval(x, y, "regression", eval_func = eval, heuristics = [["mon", 0, 0.1, 0.1, 1.0], ["inv", 1, 0.1, 1000.0]])
-
-train_eval(x, y, "regression", eval_func = eval, heuristics = [["mon", 0, 0.1, 1.0, 1.0], ["inv", 1, 0.1, 1000.0]])
-
-train_eval(x, y, "regression", eval_func = eval, heuristics = [["mon", 0, 0.1, 10.0, 1.0], ["inv", 1, 0.1, 1000.0]])
-
-

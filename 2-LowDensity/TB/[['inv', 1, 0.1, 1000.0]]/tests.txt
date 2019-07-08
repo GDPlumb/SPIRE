@@ -1,1 +1,1 @@
-{"Model MSE": 0.0016913945510447692, "MSE of perturbing Feature 1": 7.932570879347622e-08, "Mean Increase of increasing Feature 0": 0.008699332427978516, "Mean Increase of increasing Feature 1": 6.730344295501708e-05}
+{"Model MSE across noiseless samples": 0.04767178815864162, "Model MSE across uniform grid": 0.17283649960794495, "MSE of perturbing Feature 1": 2.6832538843154907e-05, "Mean Increase of increasing Feature 0": 0.456161962890625, "Mean Increase of increasing Feature 1": 0.003304573822021484}
