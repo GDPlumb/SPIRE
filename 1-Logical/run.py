@@ -16,9 +16,9 @@ def eval(sess, pred, X, n = 500):
         problem = Logical()
     
         # Plot the learned function for dim 0 and 1
+        acc = np.zeros((3))
         c = 1
         for mode in ["bad", "random", "zeros"]:
-
         
             if mode == "bad":
                 x = problem.gen_bad(n)
@@ -29,15 +29,21 @@ def eval(sess, pred, X, n = 500):
 
             y_hat = sess.run(pred, feed_dict = {X: x})
 
-            indices_0 = np.where(y_hat >= 0.5)[0]
-            indices_1 = np.where(y_hat < 0.5)[0]
+            indices_0 = np.where(y_hat < 0.5)[0]
+            indices_1 = np.where(y_hat >= 0.5)[0]
+
+            acc[c - 1] = np.mean(problem.label(x) == np.array(y_hat >= 0.5))
 
             plt.subplot(3, 1, c)
             plt.scatter(x[indices_0, 0], x[indices_0, 1], marker='x')
             plt.scatter(x[indices_1, 0], x[indices_1, 1], marker='+')
-            plt.title(mode)
+            plt.xlabel("Feature 0")
+            plt.ylabel("Feature 1")
+            plt.title("Features 2 and 3 drawn using: " + mode)
             
             c += 1
+    
+        plt.tight_layout()
 
         plt.savefig("out.pdf")
 
@@ -76,11 +82,22 @@ def eval(sess, pred, X, n = 500):
                 c += 1
                 
         diffs /= n
+
+        out = {}
+        out["Model Acc: Bad"] = acc[0]
+        out["Model Acc:  Random"] = acc[1]
+        out["Model Acc:  Zeros"] = acc[2]
+        out["MSE of perturbing Feature 2"] = diffs[0]
+        out["MSE of perturbing Feature 2"] = diffs[1]
+        out["MSE of perturbing Features 2 and 3"] = diffs[2]
+        out["Mean Increase of increasing Feature 0"] = diffs[3]
+        out["Mean Increase of increasing Feature 1"] = diffs[4]
+        out["Mean Increase of increasing Feature 2"] = diffs[5]
         with open("tests.txt", "w") as outfile:
-            json.dump(diffs.tolist(), outfile)
+            json.dump(out, outfile)
 
 problem = Logical()
-x = problem.gen_bad(100)
+x = problem.gen_bad(200)
 y = problem.label(x)
 
 train_eval(x, y, "binary_classification", eval_func = eval)

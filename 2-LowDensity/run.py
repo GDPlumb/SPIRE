@@ -30,6 +30,11 @@ def eval(sess, pred, X):
         grid_error = np.transpose(np.reshape(grid_pred - grid_y, (100, 100)))
 
         plt.imshow(grid_error)
+        plt.title("Difference between predicted and true value")
+        plt.xticks([], [])
+        plt.yticks([], [])
+        plt.xlabel("Feature 0")
+        plt.ylabel("Feature 1")
         plt.colorbar()
             
         plt.savefig("out.pdf")
@@ -63,8 +68,14 @@ def eval(sess, pred, X):
                 c += 1
 
         diffs /= 10000
+
+        out = {}
+        out["Model MSE"] = np.mean(grid_error ** 2)
+        out["MSE of perturbing Feature 1"] = diffs[0]
+        out["Mean Increase of increasing Feature 0"] = diffs[1]
+        out["Mean Increase of increasing Feature 1"] = diffs[2]
         with open("tests.txt", "w") as outfile:
-            json.dump(diffs.tolist(), outfile)
+            json.dump(out, outfile)
 
 problem = LowDensity()
 x = problem.gen(100)
