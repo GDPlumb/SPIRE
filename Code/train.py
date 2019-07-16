@@ -19,7 +19,7 @@ def train_eval(x, y, objective, test_size = 0.25,
         batch_size = 8, learning_rate = 0.01,
         min_epochs = 100, stopping_epochs = 50,  tol = 0.001,
         heuristics = None,
-        eval_func = None):
+        eval_func = None, x_test = None, y_test = None):
 
     # Setup working directory
     cwd = os.getcwd()
@@ -160,6 +160,8 @@ def train_eval(x, y, objective, test_size = 0.25,
         # Run the model evaluation
         if eval_func is not None:
             eval_func(sess, pred, X)
+        else:
+            print(sess.run(perf_op, {X: x_test, Y: y_test}))
 
         # Reset
         os.chdir(cwd)
