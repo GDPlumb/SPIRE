@@ -19,11 +19,13 @@ def train_eval(x, y, objective, test_size = 0.25,
         batch_size = 8, learning_rate = 0.01,
         min_epochs = 100, stopping_epochs = 50,  tol = 0.001,
         heuristics = None,
-        eval_func = None, x_test = None, y_test = None):
+        eval_func = None, x_test = None, y_test = None, flag = None,
+        name = None):
 
     # Setup working directory
     cwd = os.getcwd()
-    name = "TB/"
+    if name is None:
+        name = "TB/"
     if heuristics is not None:
         name += str(heuristics)
     else:
@@ -159,10 +161,12 @@ def train_eval(x, y, objective, test_size = 0.25,
 
         # Run the model evaluation
         if eval_func is not None:
-            eval_func(sess, pred, X)
+            if flag is None:
+                eval_func(sess, pred, X)
+            elif flag == "UCI":
+                eval_func(sess, pred, perf_op, X, Y, x_test, y_test)
         else:
             print(sess.run(perf_op, {X: x_test, Y: y_test}))
 
         # Reset
         os.chdir(cwd)
-
