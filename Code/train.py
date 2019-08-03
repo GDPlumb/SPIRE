@@ -139,6 +139,7 @@ def train_eval(x, y, objective, test_size = 0.25,
                 x_b, y_b = bm.next_batch()
                 sess.run(train_op, feed_dict = {X: x_b, Y: y_b, X_reg: x_b})
             
+   
             summary_train = sess.run(summary_op, feed_dict = {X: x_t, Y: y_t, X_reg: x_t})
             train_writer.add_summary(summary_train, epoch)
             
@@ -160,13 +161,16 @@ def train_eval(x, y, objective, test_size = 0.25,
         saver.restore(sess, "./model.cpkt")
 
         # Run the model evaluation
+        out = None
         if eval_func is not None:
             if flag is None:
                 eval_func(sess, pred, X)
             elif flag == "UCI":
-                eval_func(sess, pred, perf_op, X, Y, x_test, y_test)
+                out = eval_func(sess, pred, pred_binary, perf_op, X, Y, x_test, y_test)
         else:
             print(sess.run(perf_op, {X: x_test, Y: y_test}))
 
         # Reset
         os.chdir(cwd)
+
+        return out
