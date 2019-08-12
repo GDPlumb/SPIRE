@@ -1,1 +1,0 @@
-{"Model Acc: Bad": 0.97, "Model Acc:  Random": 0.844, "Model Acc:  Zeros": 0.764, "MSE of perturbing Feature 2": 0.37766036987304685, "MSE of perturbing Features 2 and 3": 1.072830078125, "Mean Increase of increasing Feature 0": 0.8145127563476563, "Mean Increase of increasing Feature 1": 0.7208196411132812, "Mean Increase of increasing Feature 2": 0.5887073974609375}
