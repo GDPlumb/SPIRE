@@ -15,6 +15,39 @@ class Summary:
         plt.figure()
         plot_tree(self.region, filled=True) # TODO:  DT specific
         plt.show()
+        
+def metrics(y, y_hat, verbose = False):
+    neg = 0
+    pos = 0
+    neg_t = 0
+    pos_t = 0
+    
+    
+    for i in range(y.shape[0]):
+        if y[i] == 0:
+            neg += 1
+            if y_hat[i] == 0:
+                neg_t += 1
+        else:
+            pos += 1
+            if y_hat[i] == 1:
+                pos_t += 1
+                
+    if verbose:
+        print("Counts: ", neg_t, neg, pos_t, pos)
+                
+    if neg > 0:
+        TNR = neg_t / neg
+    else:
+        TNR = 3.14159
+    if pos > 0:
+        TPR = pos_t / pos
+    else:
+        TPR = 3.15159
+    
+    metrics = np.array([TNR, TPR])
+    
+    return metrics
 
 def search(model, X, y, heuristics, perturber, checker,  learner, use_val = False, X_val = None, y_val = None, min_explainability = 0.8, verbose = False):
 
@@ -28,11 +61,11 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
         # If we have covered the entire dataset, stop early
         if np.sum(covered) == n:
             if verbose:
-                print("Stoped Early")
+                print("\nAll Points Covered")
             break
     
         if verbose:
-            print(h)
+            print("\nHeuristic: ", h)
         
         # Apply the heuristic and get the model's predictions for those points
         X_pert, y_pert = perturber(model, X, h)
@@ -41,7 +74,7 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
         success = checker(y, y_pert)
         num_succeeded = np.sum(success)
         if verbose:
-            print(num_succeeded)
+            print("Success on Train: ", num_succeeded)
         
         # TODO: filter out the points that are outside of the data range after they have been perturbed
         # -  Do we actually want to do this?  Cleaning up the areas around the data distribution may reduce unusual explanations for points near the edge of the distribution
@@ -55,36 +88,38 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
             # Check whether or not we can easily summarize where the explanation applies
             region = learner(X, success)
             
-            # If we were given validation data, use that to check how well region performs
-            if use_val:
-                X_val_pert, y_val_pert = perturber(model, X_val, h)
-                success_eval = checker(y_val, y_val_pert)
-                success_eval_hat = region.predict(X_val)
-            else:
-                success_eval = success
-                success_eval_hat = region.predict(X)
-            
-            # Find the true positive and true negative rates
-            m = confusion_matrix(success_eval, success_eval_hat)
-            m_d = np.diag(m)
-            m_count = np.sum(m, axis = 1)
-            metrics = -1.0 * np.ones((m_d.shape[0]))
-            for i in range(m_d.shape[0]):
-                if m_count[i] != 0.0:
-                    metrics[i] = m_d[i] / m_count[i]
-                else:
-                    metrics[i] = 1.0
-
+            # Check how well the learner did on the training set
+            success_hat = region.predict(X)
+            m = metrics(success, success_hat, verbose = verbose)
             if verbose:
-                print(metrics)
+                print("Train Metrics: ", m)
+                
+            # If region learned well enough on the Training Data
+            if np.all(m > min_explainability):
             
-            # If this group is sufficientely explainable
-            if np.all(metrics > min_explainability) and np.sum(success_eval) > 0: # Require that the explanation works at least once on the validation data (if used)
-                if verbose:
-                    print("Accepted")
-                summary = Summary(h, success, region)
-                out.append(summary)
+                # If we have Validation Data, check if region generalizes to it
+                if use_val:
+                    X_val_pert, y_val_pert = perturber(model, X_val, h)
+                    success_val = checker(y_val, y_val_pert)
+                    success_val_hat = region.predict(X_val)
+                    
+                    num_succeeded_val = np.sum(success_val)
+                    if verbose:
+                        print("Success on Val: ", num_succeeded_val)
+            
+                    m = metrics(success_val, success_val_hat)
+                    if verbose:
+                        print("Validation Metrics: ", m)
+                else:
+                    num_succeeded_val = num_succeeded
+                    
+                # If region learned well enough on all the available data
+                if np.all(m > min_explainability) and num_succeeded_val > 0:
+                    if verbose:
+                        print("Accepted\n")
+                    summary = Summary(h, success, region)
+                    out.append(summary)
             elif verbose:
-                print("Rejected")
+                print("Rejected\n")
                 
     return out
