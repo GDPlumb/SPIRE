@@ -5,10 +5,11 @@ from sklearn.metrics import confusion_matrix
 
 class Summary:
 
-    def __init__(self, heuristic, indices, region):
+    def __init__(self, heuristic, indices, region, counts = None):
         self.heuristic = heuristic
         self.indices = indices
         self.region = region
+        self.counts = counts
         
     def print(self):
         print(self.heuristic)
@@ -49,7 +50,7 @@ def metrics(y, y_hat, verbose = False):
     
     return metrics
 
-def search(model, X, y, heuristics, perturber, checker,  learner, use_val = False, X_val = None, y_val = None, min_explainability = 0.8, verbose = False):
+def search(model, X, y, heuristics, perturber, checker,  learner, use_val = False, X_val = None, y_val = None, min_explainability = 0.8, use_acc = False, verbose = False):
 
     n = X.shape[0]
     covered = np.zeros((n))
@@ -90,7 +91,10 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
             
             # Check how well the learner did on the training set
             success_hat = region.predict(X)
-            m = metrics(success, success_hat, verbose = verbose)
+            if use_acc:
+                m = np.mean(success == success_hat)
+            else:
+                m = metrics(success, success_hat, verbose = verbose)
             if verbose:
                 print("Train Metrics: ", m)
                 
@@ -107,7 +111,10 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
                     if verbose:
                         print("Success on Val: ", num_succeeded_val)
             
-                    m = metrics(success_val, success_val_hat)
+                    if use_acc:
+                        m = np.mean(success_val == success_val_hat)
+                    else:
+                        m = metrics(success_val, success_val_hat)
                     if verbose:
                         print("Validation Metrics: ", m)
                 else:
@@ -117,7 +124,7 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
                 if np.all(m > min_explainability) and num_succeeded_val > 0:
                     if verbose:
                         print("Accepted\n")
-                    summary = Summary(h, success, region)
+                    summary = Summary(h, success, region, counts = [num_succeeded, num_succeeded_val])
                     out.append(summary)
             elif verbose:
                 print("Rejected\n")
