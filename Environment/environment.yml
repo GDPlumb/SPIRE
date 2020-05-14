@@ -1,0 +1,10 @@
+
+name: countervision
+dependencies:
+  - python=3.7.*
+  - numpy=1.18.*
+  - scipy=1.4.*
+  - scikit-learn=0.22.*
+  - matplotlib=3.1.*
+  - tensorflow-gpu=2.0.*
+  - ipykernel
