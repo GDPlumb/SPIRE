@@ -1,0 +1,15 @@
+Epoch / Epoch Train Loss / Val Loss: 0 0.19039895 0.0009690563 -> saving
+Epoch / Epoch Train Loss / Val Loss: 1 0.00012845162 7.3893093e-06 -> saving
+Epoch / Epoch Train Loss / Val Loss: 2 1.4505379e-06 1.0053577e-06
+Epoch / Epoch Train Loss / Val Loss: 3 2.354815e-07 4.6577037e-07
+Epoch / Epoch Train Loss / Val Loss: 4 1.13573876e-07 3.5217835e-07
+Dropping learning_rate
+Epoch / Epoch Train Loss / Val Loss: 5 9.918319e-08 2.9013995e-07
+Dropping learning_rate
+Epoch / Epoch Train Loss / Val Loss: 6 8.575291e-08 2.71272e-07
+Dropping learning_rate
+Epoch / Epoch Train Loss / Val Loss: 7 7.982531e-08 2.6902597e-07
+Dropping learning_rate
+Epoch / Epoch Train Loss / Val Loss: 8 7.750278e-08 2.6789925e-07
+Dropping learning_rate
+Epoch / Epoch Train Loss / Val Loss: 9 6.620588e-08 2.6746932e-07

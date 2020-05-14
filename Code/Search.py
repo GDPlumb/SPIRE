@@ -44,7 +44,7 @@ def metrics(y, y_hat, verbose = False):
     if pos > 0:
         TPR = pos_t / pos
     else:
-        TPR = 3.15159
+        TPR = 3.14159
     
     metrics = np.array([TNR, TPR])
     
@@ -69,10 +69,10 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
             print("\nHeuristic: ", h)
         
         # Apply the heuristic and get the model's predictions for those points
-        X_pert, y_pert = perturber(model, X, h)
+        X_pert, y_pert = perturber.apply(model, X, h)
                 
         # Determine where the heuristics works
-        success = checker(y, y_pert)
+        success = checker.check(y, y_pert)
         num_succeeded = np.sum(success)
         if verbose:
             print("Success on Train: ", num_succeeded)
@@ -87,7 +87,8 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
             covered = np.maximum(covered, success)
 
             # Check whether or not we can easily summarize where the explanation applies
-            region = learner(X, success)
+            region = learner.new()
+            region.fit(X, success)
             
             # Check how well the learner did on the training set
             success_hat = region.predict(X)
@@ -103,8 +104,8 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
             
                 # If we have Validation Data, check if region generalizes to it
                 if use_val:
-                    X_val_pert, y_val_pert = perturber(model, X_val, h)
-                    success_val = checker(y_val, y_val_pert)
+                    X_val_pert, y_val_pert = perturber.apply(model, X_val, h)
+                    success_val = checker.check(y_val, y_val_pert)
                     success_val_hat = region.predict(X_val)
                     
                     num_succeeded_val = np.sum(success_val)
@@ -114,7 +115,7 @@ def search(model, X, y, heuristics, perturber, checker,  learner, use_val = Fals
                     if use_acc:
                         m = np.mean(success_val == success_val_hat)
                     else:
-                        m = metrics(success_val, success_val_hat)
+                        m = metrics(success_val, success_val_hat, verbose = verbose)
                     if verbose:
                         print("Validation Metrics: ", m)
                 else:
