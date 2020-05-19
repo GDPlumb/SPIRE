@@ -9,3 +9,4 @@ dependencies:
   - tensorflow-gpu=2.0.*
   - ipykernel
   - pillow=7.1.*
+  - pandas=1.0.*
