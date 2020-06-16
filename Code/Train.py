@@ -1,4 +1,5 @@
 
+import math
 import numpy as np
 import tensorflow as tf
 
@@ -19,7 +20,11 @@ def train(model, loss, X_train, y_train, X_val, y_val, model_path,
     # Setup the batch manager
     n = X_train.shape[0]
     bm = BatchManager(X_train, y_train)
-    batches_per_epoch = int(n / batch_size)
+    batches_per_epoch = math.floor(n / batch_size)
+    
+    bm_val = BatchManager(X_val, y_val)
+    n_val = X_val.shape[0]
+    batches_per_epoch_val = math.floor(n_val / batch_size)
     
     # Setup the initial optimizer (it will be re-initialized when the learning rate gets dropped)
     optimizer = tf.keras.optimizers.Adam(learning_rate = learning_rate)
@@ -54,7 +59,12 @@ def train(model, loss, X_train, y_train, X_val, y_val, model_path,
         epoch_loss = epoch_loss_avg.result().numpy()
         
         # Calculate the validation loss
-        value = loss(model, X_val, y_val).numpy()
+        epoch_loss_avg_val = tf.keras.metrics.Mean()
+        for i in range(batches_per_epoch_val):
+            x_batch, y_batch = bm_val.next_batch(batch_size = batch_size)
+            loss_value = loss(model, x_batch, y_batch)
+            epoch_loss_avg_val.update_state(loss_value)
+        value = epoch_loss_avg_val.result().numpy()
         
         # Check if we have made progress
         if value < best_loss - stopping_tol:
