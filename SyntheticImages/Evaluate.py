@@ -13,7 +13,7 @@ def evaluate(sample, n = 10000, p = 0.9, n_neutral = 200, name = "Experiment"):
 
     X = np.zeros((n, 64, 64, 3))
     Y = np.zeros((n, 1))
-    meta = [] # TODO:  split this?
+    meta = []
 
     for i in range(n):
         x, y, out = sample(p = p)
@@ -24,8 +24,8 @@ def evaluate(sample, n = 10000, p = 0.9, n_neutral = 200, name = "Experiment"):
     X = np.float32(X) / 255
     Y = np.float32(Y)
 
-    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size = 0.25)
-    X_val, X_test, Y_val, Y_test = train_test_split(X_test, Y_test, test_size = 0.5)
+    X_train, X_test, Y_train, Y_test, meta_train, meta_test = train_test_split(X, Y, meta, test_size = 0.25)
+    X_val, X_test, Y_val, Y_test, meta_val, meta_test = train_test_split(X_test, Y_test, meta_test, test_size = 0.5)
 
     # Create a neutral dataset without the spurious correlation for evaluation
   
@@ -66,4 +66,4 @@ def evaluate(sample, n = 10000, p = 0.9, n_neutral = 200, name = "Experiment"):
 
     train(model, loss, X_train, Y_train, X_val, Y_val, name + "/model")
     
-    return model, X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral
+    return model, X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, meta_train, meta_val, meta_test

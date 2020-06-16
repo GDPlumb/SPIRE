@@ -2,25 +2,34 @@ import numpy as np
 import cv2
 
 def add_rectangle(im, loc = (0, 0), lengths = (10, 10), color = (255, 255, 255)):
+    im_old = np.copy(im)
     cv2.rectangle(im, loc, (loc[0] + lengths[0], loc[1] + lengths[1]), color, cv2.FILLED)
+    map = np.any(im_old != im, axis = 2)
+    return map
     
 def spawn_rectangle(lengths = (10, 10)):
     loc = (np.random.randint(0, 64 - lengths[0]), np.random.randint(0, 64 - lengths[1]))
-    return (loc, lengths)
+    return loc
     
 def add_circle(im, loc = (0,0), radius = 10, color = (255, 255, 255)):
+    im_old = np.copy(im)
     cv2.circle(im, (loc[0] + radius, loc[1] + radius), radius, color, cv2.FILLED)
+    map = np.any(im_old != im, axis = 2)
+    return map
     
 def spawn_circle(radius = 10):
     loc = (np.random.randint(0, 64 - 2 * radius), np.random.randint(0, 64 - 2 * radius))
-    return (loc, (2 * radius, 2 * radius))
+    return loc
     
 def add_letter(im, char = 'Y', loc = (0, 0), color = (255, 255, 255)):
+    im_old = np.copy(im)
     cv2.putText(im, char, (loc[0], loc[1] + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA)
+    map = np.any(im_old != im, axis = 2)
+    return map
     
 def spawn_letter():
     loc = (np.random.randint(0, 54), np.random.randint(0, 54))
-    return (loc, (10, 10))
+    return loc
 
 def make_im(color_b, include_1, shape_1, color_1, include_2, shape_2, color_2, char):
     out = []
@@ -37,14 +46,12 @@ def make_im(color_b, include_1, shape_1, color_1, include_2, shape_2, color_2, c
         elif color_1 == 1:
             c = (255, 0, 0)
         if shape_1 == 0:
-            s = spawn_rectangle()
-            loc = s[0]
-            add_rectangle(im, loc = loc, color = c)
+            loc = spawn_rectangle()
+            map = add_rectangle(im, loc = loc, color = c)
         elif shape_1 == 1:
-            s = spawn_circle()
-            loc = s[0]
-            add_circle(im, loc = loc, color = c)
-        out.append(s)
+            loc = spawn_circle()
+            map = add_circle(im, loc = loc, color = c)
+        out.append(map)
         
     # Add the first object
     if include_2 == 0:
@@ -55,23 +62,20 @@ def make_im(color_b, include_1, shape_1, color_1, include_2, shape_2, color_2, c
         elif color_2 == 1:
             c = (0, 255, 0)
         if shape_2 == 0:
-            s = spawn_rectangle()
-            loc = s[0]
-            add_rectangle(im, loc = loc, color = c)
+            loc = spawn_rectangle()
+            map = add_rectangle(im, loc = loc, color = c)
         elif shape_2 == 1:
-            s = spawn_circle()
-            loc = s[0]
-            add_circle(im, loc = loc, color = c)
-        out.append(s)
+            loc = spawn_circle()
+            map = add_circle(im, loc = loc, color = c)
+        out.append(map)
     
     # Add the letter
-    s = spawn_letter()
-    loc = s[0]
+    loc = spawn_letter()
     if char == 0:
-        add_letter(im, 'N', loc = loc, color = (0, 0, 255))
+        map = add_letter(im, 'N', loc = loc, color = (0, 0, 255))
     elif char == 1:
-        add_letter(im, 'Y', loc = loc, color = (0, 0, 255))
-    out.append(s)
+        map = add_letter(im, 'Y', loc = loc, color = (0, 0, 255))
+    out.append(map)
     
     return im, out
 
