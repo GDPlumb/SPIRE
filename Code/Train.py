@@ -8,9 +8,7 @@ from BatchManager import BatchManager
 def train(model, loss, X_train, y_train, X_val, y_val, model_path,
         learning_rate = 0.001, learning_rate_decay = 0.3, learning_rate_drops = 5,
         batch_size = 64, min_epochs = 3, stopping_epochs = 3, stopping_tol = 0.0001):
-        
-    file = open(model_path + ".txt", "w")
-     
+             
     # Define the gradient
     def grad(model, inputs, targets):
         with tf.GradientTape() as tape:
@@ -44,7 +42,7 @@ def train(model, loss, X_train, y_train, X_val, y_val, model_path,
             if drops == learning_rate_drops:
                 break
             else:
-                file.write("Dropping learning_rate\n")
+                print("Dropping learning_rate")
                 learning_rate *= learning_rate_decay
                 optimizer = tf.keras.optimizers.Adam(learning_rate = learning_rate)
                 drops += 1
@@ -68,16 +66,14 @@ def train(model, loss, X_train, y_train, X_val, y_val, model_path,
         
         # Check if we have made progress
         if value < best_loss - stopping_tol:
-            file.write("Epoch / Epoch Train Loss / Val Loss: " + str(epoch) + " " + str(epoch_loss) + " " + str(value) + " -> saving\n")
+            print("Epoch / Epoch Train Loss / Val Loss: " + str(epoch) + " " + str(epoch_loss) + " " + str(value) + " -> saving")
             best_loss = value
             best_epoch = epoch
             model.save_weights(model_path)
         else:
-            file.write("Epoch / Epoch Train Loss / Val Loss: " + str(epoch) + " " + str(epoch_loss) + " " + str(value) + "\n")
+            print("Epoch / Epoch Train Loss / Val Loss: " + str(epoch) + " " + str(epoch_loss) + " " + str(value))
         
         # Update counters
         epoch += 1
         
     model.load_weights(model_path)
-    
-    file.close()

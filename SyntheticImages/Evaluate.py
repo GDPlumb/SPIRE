@@ -7,6 +7,9 @@ import tensorflow as tf
 sys.path.insert(0, "../Code/")
 from Train import train
 
+def loss(model, inputs, labels):
+    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits = model(inputs), labels = labels))
+
 def evaluate(sample, n = 10000, p = 0.9, n_neutral = 200, name = "Experiment"):
     
     # Create a training dataset with the spurious correlation
@@ -58,12 +61,6 @@ def evaluate(sample, n = 10000, p = 0.9, n_neutral = 200, name = "Experiment"):
               tf.keras.layers.Dense(1)
               ])
 
-    def loss(model, inputs, labels):
-        return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits = model(inputs), labels = labels))
-
-    os.system("rm -rf " + name)
-    os.system("mkdir " + name)
-
-    train(model, loss, X_train, Y_train, X_val, Y_val, name + "/model")
+    train(model, loss, X_train, Y_train, X_val, Y_val, name)
     
     return model, X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, meta_train, meta_val, meta_test
