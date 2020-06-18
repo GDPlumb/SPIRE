@@ -1,18 +1,13 @@
 The goal is to predict whether or not the two objects have the same shape
 
 Experiment 1: Spurious Correlation with the Background color
--  The background is grey whenever the answer is yes and black when it is no
 
 Experiment 2: Spurious Correlation with the Letter
-The letter is Y whenever the answer is yes and N when it is no
 
-Experiment 3: Spurious Correlation with Location
-If there is an object in the lower right corner, then the answer is yes and, otherwise, it is no
+Experiment 3: Spurious Correlation with Color
 
-Experiment 4: Spurious Correlation with Color
-If there is a green object, then the answer is yes and, otherwise, it is no
+Experiment 4: Spurious Correlation with Location
+-  We are ignoring this for now
 
-Question: How should we handle addressing what the model does for images fewer than two objects?
-For now, we are going to train models to predict no in thise case
-
-Question: Should we force the model to learn the bad behavior (by presenting it as the only signal in the dataset) or create the distribution as described and see if the model learns poorly?
+Implementation Notes
+-  We train the models to predict false whenever there are not two objects in the image
