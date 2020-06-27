@@ -10,3 +10,4 @@ dependencies:
   - ipykernel
   - pandas=1.0.*
   - opencv=3.4.*
+  - tqdm=4.46.*
