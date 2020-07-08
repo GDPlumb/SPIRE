@@ -1,5 +1,6 @@
 
 import numpy as np
+import pickle
 from PIL import Image
 from pycocotools.coco import COCO
 from torchvision.datasets import VisionDataset
@@ -23,7 +24,15 @@ def get_padding(image):
     b_pad = v_padding if v_padding % 1 == 0 else v_padding-0.5
     padding = (int(l_pad), int(t_pad), int(r_pad), int(b_pad))
     return padding
-
+    
+def get_transform():
+    return transforms.Compose([
+            MakeSquare(),
+            transforms.Resize((224,224)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
+        
 class MakeSquare(object):
         
     def __call__(self, img):
@@ -33,18 +42,12 @@ class MakeSquare(object):
         return self.__class__.__name__
 
     
-class MyCOCO(VisionDataset):
+class COCODataset(VisionDataset):
 
     def __init__(self, root = '/home/gregory/Datasets/COCO/', mode = 'val', year = '2017'):
     
-        transform = transforms.Compose([
-            MakeSquare(),
-            transforms.Resize((224,224)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            ])
-        
-        super(MyCOCO, self).__init__(root, None, transform, None)
+        transform = get_transform()
+        super(COCODataset, self).__init__(root, None, transform, None)
                 
         coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
         images = coco.loadImgs(coco.getImgIds())
@@ -65,6 +68,35 @@ class MyCOCO(VisionDataset):
             ids.append((filename, label))
             
         self.ids = ids
+
+        
+    def __getitem__(self, index):
+
+        obj = self.ids[index]
+        filename = obj[0]
+        target = obj[1]
+
+        img = Image.open(filename).convert('RGB')
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, target
+
+    def __len__(self):
+        return len(self.ids)
+        
+class MaskedCOCODataset(VisionDataset):
+
+    def __init__(self, source):
+    
+        transform = get_transform()
+        
+        super(MaskedCOCODataset, self).__init__(None, None, transform, None) #Do we need the 'root' from VisionDataset?
+        
+        with open(source, 'rb') as f:
+            info = pickle.load(f)
+            
+        self.ids = info
 
         
     def __getitem__(self, index):
