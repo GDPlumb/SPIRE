@@ -9,6 +9,9 @@ class COCOWrapper():
         cats = coco.loadCats(coco.getCatIds())
         self.coco = coco
         self.cats = cats
+        self.root = root
+        self.mode = mode
+        self.year = year
         
     def get_class_name(self, id):
         cats = self.cats

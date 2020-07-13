@@ -44,7 +44,7 @@ class MakeSquare(object):
     
 class COCODataset(VisionDataset):
 
-    def __init__(self, root = '/home/gregory/Datasets/COCO/', mode = 'val', year = '2017'):
+    def __init__(self, root = '/home/gregory/Datasets/COCO/', mode = 'val', year = '2017', sources = None):
     
         transform = get_transform()
         super(COCODataset, self).__init__(root, None, transform, None)
@@ -66,6 +66,13 @@ class COCODataset(VisionDataset):
                 label[ann['category_id']] = 1.0
             
             ids.append((filename, label))
+            
+        if sources is not None:
+            for source in sources:
+                with open(source, 'rb') as f:
+                    info = pickle.load(f)
+                for item in info:
+                    ids.append(item)
             
         self.ids = ids
 
