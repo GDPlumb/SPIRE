@@ -30,7 +30,7 @@ def train_model(model, dataloaders, dataset_sizes, criterion, optimizer, schedul
             running_acc = 0
 
             # Iterate over data.
-            for inputs, labels in tqdm(dataloaders[phase]):
+            for inputs, labels in dataloaders[phase]:
                 inputs = inputs.to('cuda')
                 labels = labels.to('cuda')
 

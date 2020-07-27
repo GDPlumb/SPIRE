@@ -11,7 +11,7 @@ class ImageLoader():
         self.coco = coco
         self.transform = get_transform()
 
-    def load_img(self, img_obj, transform_apply = True, mask_apply = False, mask_classes = None, mask_mode = 'box', mask_unmask = True):
+    def load_img(self, img_obj, transform_apply = True, mask_apply = False, mask_classes = None, mask_mode = 'box', mask_unmask = True, mask_value = 'default'):
         coco = self.coco
 
         img = Image.open('{}{}'.format(self.root, img_obj['file_name'])).convert('RGB')
@@ -30,16 +30,19 @@ class ImageLoader():
                     elif mask_mode == 'box':
                         
                         idx = np.where(tmp == 1.0)
-                        min_0 = np.min(idx[0])
-                        max_0 = np.max(idx[0])
-                        min_1 = np.min(idx[1])
-                        max_1 = np.max(idx[1])
-                        
-                        tmp_new = np.copy(tmp)
-                        tmp_new[min_0:max_0, min_1:max_1] = 1.0
-                        
-                        mask.append(tmp_new)
-                        
+                        if len(idx[0] > 0): #BUG?  Sometimes this has length 0 and things break
+                            min_0 = np.min(idx[0])
+                            max_0 = np.max(idx[0])
+                            min_1 = np.min(idx[1])
+                            max_1 = np.max(idx[1])
+                            
+                            tmp_new = np.copy(tmp)
+                            tmp_new[min_0:max_0, min_1:max_1] = 1.0
+                            
+                            mask.append(tmp_new)
+                        else:
+                            mask.append(tmp)
+                            
             if len(mask) > 0:
                 mask = np.expand_dims(1.0 * (np.sum(np.array(mask), axis = 0) >= 1.0), axis = 2)
                 
@@ -57,9 +60,21 @@ class ImageLoader():
 
 
                 idx = np.where(mask == 1.0)
-                for i in range(len(idx[0])):
-                    img.putpixel((idx[1][i], idx[0][i]), (124, 116, 104))
-                 
+                idx_len = len(idx[0])
+                
+                if mask_value == 'default':
+                    for i in range(idx_len):
+                        img.putpixel((idx[1][i], idx[0][i]), (124, 116, 104))
+                elif mask_value == 'random':
+                    values = np.random.randint(low = 0, high = 256, size = (idx_len, 3))
+                    values = [tuple(x) for x in values]
+                    for i in range(idx_len):
+                        img.putpixel((idx[1][i], idx[0][i]), values[i])
+                elif mask_value == 'mean':
+                    value = tuple(np.mean(np.array(img), axis = (0,1)).astype(np.int))
+                    for i in range(idx_len):
+                        img.putpixel((idx[1][i], idx[0][i]), value)
+                            
         if transform_apply:
             return self.transform(img)
         else:
