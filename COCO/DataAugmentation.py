@@ -33,6 +33,7 @@ def create(model_class, labeler_classes, coco, loader, mask_mode = 'box', mask_u
     for i in range(n):
         img_obj = img_objs[i]
         file = '{}{}'.format(save_location, img_obj['file_name'])
+        file = '{}png'.format(file[:-3])# Use png for so the pixel values are preserved
      
         # Load and save the masked version of the image
         img = loader.load_img(img_obj, transform_apply = False, mask_apply = True, mask_classes = labeler_classes, mask_mode = mask_mode, mask_unmask = mask_unmask, mask_value = mask_value)
@@ -69,7 +70,20 @@ if __name__ == "__main__":
         
         loader = ImageLoader(root = base, coco = coco.coco)
         
-        for mask_mode in ['box']: #, 'pixel']:
+        for mask_mode in ['box', 'pixel']:
             for mask_unmask in [True]:
                 for mask_value in ['default']: #, 'random', 'mean']:
+                    create(model_class, labeler_classes, coco, loader, mask_mode = mask_mode, mask_unmask = mask_unmask, mask_value = mask_value)
+
+    for mode in ['val']:
+    
+        base = '{}{}{}/'.format(root, mode, year)
+
+        coco = COCOWrapper(root = root, mode = mode, year = year)
+        
+        loader = ImageLoader(root = base, coco = coco.coco)
+        
+        for mask_mode in ['box', 'pixel']:
+            for mask_unmask in [True]:
+                for mask_value in ['default', 'random', 'mean']:
                     create(model_class, labeler_classes, coco, loader, mask_mode = mask_mode, mask_unmask = mask_unmask, mask_value = mask_value)
