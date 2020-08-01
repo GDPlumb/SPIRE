@@ -7,6 +7,6 @@ Code/Scratch.py
 
 SyntheticImages/Models/
 
-COCO/DataAugmentation/
-COCO/DataAugmentation-Models/*/*.pt
+COCO/DataAugmentation/*
+COCO/Models/*
 

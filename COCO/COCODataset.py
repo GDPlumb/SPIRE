@@ -3,10 +3,13 @@ import numpy as np
 import pickle
 from PIL import Image
 from pycocotools.coco import COCO
+import torch
 from torchvision.datasets import VisionDataset
 from torchvision import transforms
 from torchvision.transforms.functional import pad
 
+def my_dataloader(dataset):
+    return torch.utils.data.DataLoader(dataset, batch_size = 32, shuffle = True, num_workers = 4)
 
 # References
 # https://discuss.pytorch.org/t/how-to-resize-and-pad-in-a-torchvision-transforms-compose/71850/2

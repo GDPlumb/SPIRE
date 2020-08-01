@@ -59,10 +59,10 @@ if __name__ == "__main__":
     root = '/home/gregory/Datasets/COCO/'
     year = '2017'
 
-    model_class = 'none'
+    model_class = 'skis'
     labeler_classes = ['person']
     
-    for mode in ['train']: #['val', 'train']:
+    for mode in ['val', 'train']:
     
         base = '{}{}{}/'.format(root, mode, year)
 
@@ -70,20 +70,7 @@ if __name__ == "__main__":
         
         loader = ImageLoader(root = base, coco = coco.coco)
         
-        for mask_mode in ['box', 'pixel']:
+        for mask_mode in ['box']: #, 'pixel']:
             for mask_unmask in [True]:
                 for mask_value in ['default']: #, 'random', 'mean']:
-                    create(model_class, labeler_classes, coco, loader, mask_mode = mask_mode, mask_unmask = mask_unmask, mask_value = mask_value)
-
-    for mode in ['val']:
-    
-        base = '{}{}{}/'.format(root, mode, year)
-
-        coco = COCOWrapper(root = root, mode = mode, year = year)
-        
-        loader = ImageLoader(root = base, coco = coco.coco)
-        
-        for mask_mode in ['box', 'pixel']:
-            for mask_unmask in [True]:
-                for mask_value in ['default', 'random', 'mean']:
                     create(model_class, labeler_classes, coco, loader, mask_mode = mask_mode, mask_unmask = mask_unmask, mask_value = mask_value)

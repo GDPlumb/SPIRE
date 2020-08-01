@@ -27,13 +27,13 @@ sys.path.insert(0, ec_source)
 import src.edge_connect
 ip = src.edge_connect.InPainter(model_path = '{}/checkpoints/places2/'.format(ec_source))
 
-for mode in ['val', 'train']:
-    for shape in ['box', 'pixel']:
+for mode in ['val']: #, 'train']:
+    for shape in ['box']: #, 'pixel']:
     
         if mode == 'train' and shape == 'pixel':
             break
         
-        dataset = '{}2017-none-[person]'.format(mode)
+        dataset = '{}2017-skis-[person]'.format(mode)
         mask_config = '{}-True-default'.format(shape)
         save_location = './DataAugmentation/{}/{}-True-paint/'.format(dataset, shape)
         
