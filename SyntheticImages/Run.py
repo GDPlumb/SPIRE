@@ -11,7 +11,6 @@ from Heuristics import augment
 from Load import load
 from Model import get_model, loss
 
-sys.path.insert(0, "../Code")
 from Core import acc
 from Train import train
 
