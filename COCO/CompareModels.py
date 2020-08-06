@@ -11,10 +11,18 @@ from ModelWrapper import ModelWrapper
 
 if __name__ == '__main__':
 
+    torch.multiprocessing.set_sharing_strategy('file_system')
+
+    root = '/home/gregory/Datasets/COCO/'
+    mode = 'val'
+    mode_split = 'train'
+    year = '2017'
+    
+    num_workers = 10
 
     plot_class = 'skis'
     heuristic_class = 'person'
-    coco = COCOWrapper()
+    coco = COCOWrapper(root = root, mode = mode_split, year = year)
     index = coco.get_cat_ids(plot_class)[0]
 
     model_base = './Models'
@@ -58,10 +66,14 @@ if __name__ == '__main__':
     wrapper = ModelWrapper(model)
 
     # Format the plot grid
-    num_plots = len(data_configs) + 2
+    num_plots = len(data_configs) + 3
     fig = plt.figure(figsize=(5, num_plots * 5))
     fig.subplots_adjust(hspace=0.4, wspace=0.4)
     count_plots = 1
+    
+    def update():
+        plt.savefig('CompareModels/{}-{}.png'.format(plot_class, heuristic_class))
+        print('Finished: ', count_plots - 1)
 
     # Plot the metrics on the original distribution
     plt.subplot(num_plots, 1, count_plots)
@@ -72,8 +84,8 @@ if __name__ == '__main__':
     plt.xlim([0, 1])
     plt.ylim([0, 1])
 
-    dataset = COCODataset(root = '/home/gregory/Datasets/COCO/', mode = 'val', year = '2017')
-    dataloader = my_dataloader(dataset)
+    dataset = COCODataset(root = root, mode = mode, year = year)
+    dataloader = my_dataloader(dataset, num_workers = num_workers)
     
     for model_config in model_configs:
         p = []
@@ -94,19 +106,40 @@ if __name__ == '__main__':
             
         plt.scatter(p, r, label = model_config)
     plt.legend()
-
-        
+    update()
+    
+    # Plot the metrics on the natural images split based on whether or not they have the heuristic_class
+    imgs_with, imgs_without = coco.split_images_by_cats(cats = [heuristic_class])
+    
     plt.subplot(num_plots, 1, count_plots)
     count_plots += 1
-    plt.title('Original Distribution - {}'.format(plot_class))
+    plt.title('Natural Images with {} for detecting {}'.format(heuristic_class, plot_class))
     plt.xlabel('precision')
     plt.ylabel('recall')
     plt.xlim([0, 1])
     plt.ylim([0, 1])
-        
+    
+    dataset = COCODataset(root = root, mode = mode_split, year = year, imgIds = imgs_with)
+    dataloader = my_dataloader(dataset, num_workers = num_workers)
     for model_config in model_configs:
         p, r = my_metrics(model_config, dataloader)
         plt.scatter(p, r, label = model_config)
+    update()
+                
+    plt.subplot(num_plots, 1, count_plots)
+    count_plots += 1
+    plt.title('Natural Images without {} for detecting {}'.format(heuristic_class, plot_class))
+    plt.xlabel('precision')
+    plt.ylabel('recall')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    
+    dataset = COCODataset(root = root, mode = mode_split, year = year, imgIds = imgs_without)
+    dataloader = my_dataloader(dataset, num_workers = num_workers)
+    for model_config in model_configs:
+        p, r = my_metrics(model_config, dataloader)
+        plt.scatter(p, r, label = model_config)
+    update()
     
     # Plot the metrics on the altered distributions
     for data_config in data_configs:
@@ -120,12 +153,9 @@ if __name__ == '__main__':
         plt.ylim([0, 1])
 
         dataset = MaskedCOCODataset('./DataAugmentation/{}/labels.p'.format(data_config))
-        dataloader = my_dataloader(dataset)
+        dataloader = my_dataloader(dataset, num_workers = num_workers)
 
         for model_config in model_configs:
             p, r = my_metrics(model_config, dataloader)
             plt.scatter(p, r)
-    
-    plt.savefig('CompareModels/{}-{}.png'.format(plot_class, heuristic_class))
-
-
+        update()

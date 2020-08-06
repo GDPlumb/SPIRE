@@ -8,8 +8,8 @@ from torchvision.datasets import VisionDataset
 from torchvision import transforms
 from torchvision.transforms.functional import pad
 
-def my_dataloader(dataset):
-    return torch.utils.data.DataLoader(dataset, batch_size = 32, shuffle = True, num_workers = 4)
+def my_dataloader(dataset, batch_size = 32, num_workers = 4):
+    return torch.utils.data.DataLoader(dataset, batch_size = batch_size, shuffle = True, num_workers = num_workers)
 
 # References
 # https://discuss.pytorch.org/t/how-to-resize-and-pad-in-a-torchvision-transforms-compose/71850/2
@@ -47,13 +47,16 @@ class MakeSquare(object):
     
 class COCODataset(VisionDataset):
 
-    def __init__(self, root = '/home/gregory/Datasets/COCO/', mode = 'val', year = '2017', sources = None):
+    def __init__(self, root = '/home/gregory/Datasets/COCO/', mode = 'val', year = '2017', sources = None, imgIds = None):
     
         transform = get_transform()
         super(COCODataset, self).__init__(root, None, transform, None)
                 
         coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
-        images = coco.loadImgs(coco.getImgIds())
+        if imgIds is None:
+            images = coco.loadImgs(coco.getImgIds())
+        else:
+            images = coco.loadImgs(imgIds)
 
         ids = []
         dim = 91 # Each 'label' vector is large enough for easy indexing, but this means it contains unused indices

@@ -1,4 +1,5 @@
 
+import numpy as np
 from pycocotools.coco import COCO
 
 class COCOWrapper():
@@ -30,6 +31,15 @@ class COCOWrapper():
     def get_images_with_cats(self, cats):
         coco = self.coco
         return coco.loadImgs(coco.getImgIds(catIds = coco.getCatIds(catNms = cats)))
+        
+    def split_images_by_cats(self, cats):
+        coco = self.coco
+        
+        imgs_all = coco.getImgIds()
+        imgs_with = coco.getImgIds(catIds = coco.getCatIds(catNms = cats))
+        imgs_without = np.setdiff1d(imgs_all, imgs_with)
+        
+        return imgs_with, imgs_without
         
     def get_annotations(self, img_obj):
         coco = self.coco
