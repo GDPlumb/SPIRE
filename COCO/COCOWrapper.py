@@ -57,3 +57,19 @@ class COCOWrapper():
         print("MAP MAR")
         print(MAP / len(cats), MAR / len(cats))
         print()
+        
+    def get_metrics(self, precision, recall):
+        cats = self.cats
+        
+        MAP = 0.0
+        MAR = 0.0
+        for cat in cats:
+            p = precision[cat['id']]
+            MAP += p
+            r = recall[cat['id']]
+            MAR += r
+        
+        MAP /= len(cats)
+        MAR /= len(cats)
+        
+        return MAP, MAR

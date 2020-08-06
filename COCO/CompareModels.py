@@ -58,7 +58,7 @@ if __name__ == '__main__':
     wrapper = ModelWrapper(model)
 
     # Format the plot grid
-    num_plots = len(data_configs) + 1
+    num_plots = len(data_configs) + 2
     fig = plt.figure(figsize=(5, num_plots * 5))
     fig.subplots_adjust(hspace=0.4, wspace=0.4)
     count_plots = 1
@@ -67,18 +67,46 @@ if __name__ == '__main__':
     plt.subplot(num_plots, 1, count_plots)
     count_plots += 1
     plt.title('Original Distribution')
-    plt.xlabel('precision')
-    plt.ylabel('recall')
+    plt.xlabel('MAP')
+    plt.ylabel('MAR')
     plt.xlim([0, 1])
     plt.ylim([0, 1])
 
     dataset = COCODataset(root = '/home/gregory/Datasets/COCO/', mode = 'val', year = '2017')
     dataloader = my_dataloader(dataset)
+    
+    for model_config in model_configs:
+        p = []
+        r = []
+        for trial in range(n_trials):
+        
+            model_file = '{}/{}/model_{}.pt'.format(model_base, model_config, trial)
+        
+            model.load_state_dict(torch.load(model_file))
+            
+            y_hat, y_true = wrapper.predict_dataset(dataloader)
+            precision, recall = wrapper.metrics(y_hat, y_true)
+            
+            o1, o2 = coco.get_metrics(precision, recall)
+            
+            p.append(o1)
+            r.append(o2)
+            
+        plt.scatter(p, r, label = model_config)
+    plt.legend()
 
+        
+    plt.subplot(num_plots, 1, count_plots)
+    count_plots += 1
+    plt.title('Original Distribution - {}'.format(plot_class))
+    plt.xlabel('precision')
+    plt.ylabel('recall')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+        
     for model_config in model_configs:
         p, r = my_metrics(model_config, dataloader)
         plt.scatter(p, r, label = model_config)
-    plt.legend()
     
     # Plot the metrics on the altered distributions
     for data_config in data_configs:
