@@ -37,7 +37,7 @@ def eval(sample, n, p, n_neutral, heuristic):
     return out
     
 if __name__ == "__main__":
-    mode = 2
+    mode = 3
     n_neutral = 200
 
     n_trials = 5
@@ -65,7 +65,7 @@ if __name__ == "__main__":
         from Sample import sample_3 as sample
     
     n_array = [5000, 10000, 15000, 20000]
-    p_array = [0.8, 0.85, 0.9, 0.95, 1.0]
+    p_array = [0.5, 0.8, 0.85, 0.9, 0.95, 1.0]
     
     n_runs = len(n_array) * len(p_array)
     
