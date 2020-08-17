@@ -2,6 +2,7 @@
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import sys
 import torch
 import torchvision.models as models
 
@@ -11,34 +12,29 @@ from ModelWrapper import ModelWrapper
 
 if __name__ == '__main__':
 
+
     torch.multiprocessing.set_sharing_strategy('file_system')
 
-    root = '/home/gregory/Datasets/COCO/'
-    mode = 'val'
-    mode_split = 'train'
-    year = '2017'
+    plot_class = sys.argv[1].replace('-', ' ')
+    heuristic_class = sys.argv[2].replace('-', ' ')
+    root = sys.argv[3]
+    year = sys.argv[4]
+        
+    num_workers = 8
     
-    num_workers = 10
+    n_trials = 5
 
-    plot_class = 'skis'
-    heuristic_class = 'person'
-    coco = COCOWrapper(root = root, mode = mode_split, year = year)
+    coco = COCOWrapper(root = root, mode = 'train', year = year)
     index = coco.get_cat_ids(plot_class)[0]
 
     model_base = './Models'
 
     model_configs = ['Initial', \
-                    'DA/skis-[person]/box-True-default', \
-                    'DA/none-[person]/box-True-default', \
-                    'DA/none-[person]/box-True-paint']
-    n_trials = 5
+                    'DA/none-[{}]/box-True-default'.format(heuristic_class), \
+                    'DA/none-[{}]/box-True-paint'.format(heuristic_class)]
 
-    data_configs = ['val2017-skis-[person]/box-True-default/', \
-                        'val2017-skis-[person]/box-True-paint/', \
-                        'val2017-none-[person]/box-True-default/', \
-                        'val2017-none-[person]/box-True-paint/',  \
-                        'val2017-none-[person]/pixel-True-default/', \
-                        'val2017-none-[person]/pixel-True-paint/']
+    data_configs = ['val{}-none-[{}]/box-True-default/'.format(year, heuristic_class), \
+                    'val{}-none-[{}]/box-True-paint/'.format(year, heuristic_class)]
     
     def my_metrics(model_config, dataloader): # WARNING: this function pulls many variables from the global scope
         p = []
@@ -84,7 +80,7 @@ if __name__ == '__main__':
     plt.xlim([0, 1])
     plt.ylim([0, 1])
 
-    dataset = COCODataset(root = root, mode = mode, year = year)
+    dataset = COCODataset(root = root, mode = 'val', year = year)
     dataloader = my_dataloader(dataset, num_workers = num_workers)
     
     for model_config in model_configs:
@@ -119,7 +115,7 @@ if __name__ == '__main__':
     plt.xlim([0, 1])
     plt.ylim([0, 1])
     
-    dataset = COCODataset(root = root, mode = mode_split, year = year, imgIds = imgs_with)
+    dataset = COCODataset(root = root, mode = 'train', year = year, imgIds = imgs_with)
     dataloader = my_dataloader(dataset, num_workers = num_workers)
     for model_config in model_configs:
         p, r = my_metrics(model_config, dataloader)
@@ -134,7 +130,7 @@ if __name__ == '__main__':
     plt.xlim([0, 1])
     plt.ylim([0, 1])
     
-    dataset = COCODataset(root = root, mode = mode_split, year = year, imgIds = imgs_without)
+    dataset = COCODataset(root = root, mode = 'train', year = year, imgIds = imgs_without)
     dataloader = my_dataloader(dataset, num_workers = num_workers)
     for model_config in model_configs:
         p, r = my_metrics(model_config, dataloader)
