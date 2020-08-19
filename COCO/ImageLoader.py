@@ -57,23 +57,16 @@ class ImageLoader():
                         unmask = np.expand_dims(1.0 * (np.sum(np.array(unmask), axis = 0) >= 1.0), axis = 2)
                         mask = mask - unmask
                         mask = np.clip(mask, 0, 1)
-
-
-                idx = np.where(mask == 1.0)
-                idx_len = len(idx[0])
                 
+                mask = (np.squeeze(mask) == 1)
+                img_np = np.array(img)
                 if mask_value == 'default':
-                    for i in range(idx_len):
-                        img.putpixel((idx[1][i], idx[0][i]), (124, 116, 104))
+                    img_np[mask] = [124, 116, 104]
                 elif mask_value == 'random':
-                    values = np.random.randint(low = 0, high = 256, size = (idx_len, 3))
-                    values = [tuple(x) for x in values]
-                    for i in range(idx_len):
-                        img.putpixel((idx[1][i], idx[0][i]), values[i])
+                    img_np[mask] =  np.random.randint(low = 0, high = 256, size = (np.sum(mask), 3))
                 elif mask_value == 'mean':
-                    value = tuple(np.mean(np.array(img), axis = (0,1)).astype(np.int))
-                    for i in range(idx_len):
-                        img.putpixel((idx[1][i], idx[0][i]), value)
+                    img_np[mask] = np.mean(np.array(img), axis = (0,1)).astype(np.int)
+                img = Image.fromarray(img_np)
                             
         if transform_apply:
             return self.transform(img)

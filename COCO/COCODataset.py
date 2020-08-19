@@ -47,7 +47,7 @@ class MakeSquare(object):
     
 class COCODataset(VisionDataset):
 
-    def __init__(self, root = '/home/gregory/Datasets/COCO/', mode = 'val', year = '2017', sources = None, imgIds = None):
+    def __init__(self, root = '/home/gregory/Datasets/COCO', mode = 'val', year = '2017', sources = None, imgIds = None, get_names = False):
     
         transform = get_transform()
         super(COCODataset, self).__init__(root, None, transform, None)
@@ -81,7 +81,7 @@ class COCODataset(VisionDataset):
                     ids.append(item)
             
         self.ids = ids
-
+        self.get_names = get_names
         
     def __getitem__(self, index):
 
@@ -93,7 +93,10 @@ class COCODataset(VisionDataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        return img, target
+        if self.get_names:
+            return img, target, filename
+        else:
+            return img, target
 
     def __len__(self):
         return len(self.ids)
@@ -126,3 +129,99 @@ class MaskedCOCODataset(VisionDataset):
 
     def __len__(self):
         return len(self.ids)
+
+class MaskedCOCOImages(VisionDataset):
+
+    def __init__(self, ids, coco, mask_apply = False, mask_classes = None, mask_mode = 'box', mask_unmask = True, mask_value = 'default', get_names = False):
+    
+        transform = get_transform()
+        
+        super(MaskedCOCOImages, self).__init__(None, None, transform, None)
+        
+        self.ids = ids
+        self.coco = coco
+        self.mask_apply = mask_apply
+        self.mask_classes = mask_classes
+        self.mask_mode = mask_mode
+        self.mask_unmask = mask_unmask
+        self.mask_value = mask_value
+        self.get_names = get_names
+
+    def __getitem__(self, index):
+        filename = self.ids[index]
+
+        img = Image.open(filename).convert('RGB')
+        
+        mask_apply = self.mask_apply
+        if mask_apply:
+            coco = self.coco
+            mask_classes = self.mask_classes
+            mask_mode = self.mask_mode
+            mask_unmask = self.mask_unmask
+            mask_value = self.mask_value
+            
+            # Get the COCO id of this image from the filename
+            coco_id = np.int(filename.split('/')[-1].split('.')[0].lstrip('0'))
+            
+            # Get the annotations for this image
+            anns = coco.loadAnns(coco.getAnnIds(imgIds = coco_id))
+            
+            # Calculate the mask
+            mask_classes = coco.getCatIds(catNms = mask_classes)
+            mask = []
+            for ann in anns:
+                if ann['category_id'] in mask_classes:
+                    tmp = coco.annToMask(ann)
+                    if mask_mode == 'pixel':
+                        mask.append(tmp)
+                    elif mask_mode == 'box':
+                        
+                        idx = np.where(tmp == 1.0)
+                        if len(idx[0] > 0): #BUG?  Sometimes this has length 0 and things break
+                            min_0 = np.min(idx[0])
+                            max_0 = np.max(idx[0])
+                            min_1 = np.min(idx[1])
+                            max_1 = np.max(idx[1])
+                            
+                            tmp_new = np.copy(tmp)
+                            tmp_new[min_0:max_0, min_1:max_1] = 1.0
+                            
+                            mask.append(tmp_new)
+                        else:
+                            mask.append(tmp)
+                            
+            if len(mask) > 0:
+                mask = np.expand_dims(1.0 * (np.sum(np.array(mask), axis = 0) >= 1.0), axis = 2)
+                
+                if mask_unmask:
+                    unmask = []
+                    for ann in anns:
+                        if ann['category_id'] not in mask_classes:
+                            tmp = coco.annToMask(ann)
+                            unmask.append(tmp)
+
+                    if len(unmask) > 0:
+                        unmask = np.expand_dims(1.0 * (np.sum(np.array(unmask), axis = 0) >= 1.0), axis = 2)
+                        mask = mask - unmask
+                        mask = np.clip(mask, 0, 1)
+                
+                mask = (np.squeeze(mask) == 1)
+                img_np = np.array(img)
+                if mask_value == 'default':
+                    img_np[mask] = [124, 116, 104]
+                elif mask_value == 'random':
+                    img_np[mask] =  np.random.randint(low = 0, high = 256, size = (np.sum(mask), 3))
+                elif mask_value == 'mean':
+                    img_np[mask] = np.mean(np.array(img), axis = (0,1)).astype(np.int)
+                img = Image.fromarray(img_np)
+        
+        img = self.transform(img)
+
+        if self.get_names:
+            return img, 0, filename
+        else:
+            return img, 0, target
+
+    def __len__(self):
+        return len(self.ids)
+        
