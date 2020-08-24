@@ -1,7 +1,7 @@
 
 import numpy as np
 
-def heuristic_1(im, meta):
+def heuristic_1(im, meta, use_strong = False):
     objects = np.zeros((64, 64), dtype = bool)
     for i in range(len(meta)):
         if meta[i] is not None:
@@ -9,21 +9,31 @@ def heuristic_1(im, meta):
             
     background = np.logical_not(objects)
     im_new = np.copy(im)
-    im_new[background] = np.random.uniform()
+    if use_strong:
+        color = 0.5 * np.random.randint(low = 0, high = 2) + np.random.uniform(low = -0.03, high = 0.03)
+    else:
+        color = np.random.uniform()
+    im_new[background] = color
     return (im_new, -1)
 
-def heuristic_2(im, meta):
+def heuristic_2(im, meta, use_strong = False):
     im_new = np.copy(im)
     map_ordered = get_ordered_map(meta, 2)
     color = get_background_color(im, meta)
     im_new[map_ordered] = color
     return (im_new, -1)
 
-
-def heuristic_3(im, meta):
+def heuristic_3(im, meta, use_strong = False):
     im_new = np.copy(im)
     map_ordered = get_ordered_map(meta, 0)
-    color = np.random.uniform(size = (1,3))
+    if use_strong:
+        v = np.random.uniform(low = 0.97, high = 1.0)
+        if np.random.uniform() < 0.5:
+            color = v
+        else:
+            color = [v, 0, 0]
+    else:
+        color = np.random.uniform(size = (1,3))
     im_new[map_ordered] = color
     return (im_new, -1)
     
@@ -82,4 +92,5 @@ def get_ordered_map(meta, index):
             map_ordered = np.logical_and(map_ordered, np.logical_not(m_later))
         return map_ordered
     else:
+        print("bounce")
         return np.zeros((64, 64), dtype = bool)

@@ -21,10 +21,40 @@ def spawn_circle(radius = 10):
     loc = (np.random.randint(0, 64 - 2 * radius), np.random.randint(0, 64 - 2 * radius))
     return loc
     
+def get_N():
+    N = np.zeros((10, 10), dtype = np.int)
+    N[:, 0:2] = 1
+    N[:, 8:10] = 1
+    for i in range(1, 9):
+        N[i - 1, i] = 1
+        N[i, i] = 1
+        N[i + 1, i] = 1
+    return N
+    
+def get_Y():
+    Y = np.zeros((10, 10), dtype = np.int)
+    Y[9, 0:2] = 1
+    Y[8, 1] = 1
+    for i in range(2, 10):
+        Y[9 - i, i] = 1
+        Y[10 - i, i] = 1
+        Y[11 - i, i] = 1
+    for i in range(1, 5):
+        Y[i - 1, i] = 1
+        Y[i, i] = 1
+        Y[i + 1, i] = 1
+    Y[0:2, 0] = 1
+    return Y
+
 def add_letter(im, char = 'Y', loc = (0, 0), color = (255, 255, 255)):
-    im_old = np.copy(im)
-    cv2.putText(im, char, (loc[0], loc[1] + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA)
-    map = np.any(im_old != im, axis = 2)
+    map = np.zeros((64, 64), dtype = np.int)
+    if char == 'Y':
+        c = get_Y()
+    elif char == 'N':
+        c = get_N()
+    map[loc[0]:loc[0] + 10, loc[1]:loc[1] + 10] = c
+    map = map.astype('bool')
+    im[map] = color
     return map
     
 def spawn_letter():
