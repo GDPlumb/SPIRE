@@ -5,9 +5,19 @@ import tensorflow as tf
 
 from BatchManager import BatchManager
 
+def interpolate(v1, v2, lam):
+    return lam * v1 + (1 - lam) * v2
+    
+def apply_mixup(x, y, lam):
+    perm = np.random.permutation(x.shape[0])
+    x_perm = x[perm, :]
+    y_perm = y[perm, :]
+    return interpolate(x, x_perm, lam), interpolate(y, y_perm, lam)
+
 def train(model, loss, X_train, y_train, X_val, y_val, model_path,
         learning_rate = 0.001, learning_rate_decay = 0.3, learning_rate_drops = 5,
-        batch_size = 64, min_epochs = 3, stopping_epochs = 3, stopping_tol = 0.0001):
+        batch_size = 64, min_epochs = 3, stopping_epochs = 3, stopping_tol = 0.0001,
+        mixup = False, alpha = 0.2):
              
     # Define the gradient
     def grad(model, inputs, targets):
@@ -51,7 +61,13 @@ def train(model, loss, X_train, y_train, X_val, y_val, model_path,
         epoch_loss_avg = tf.keras.metrics.Mean()
         for i in range(batches_per_epoch):
             x_batch, y_batch = bm.next_batch(batch_size = batch_size)
-            loss_value, grads = grad(model, x_batch, y_batch)
+            
+            if mixup:
+                lam = np.random.beta(alpha, alpha)
+                x_mixup, y_mixup = apply_mixup(x_batch, y_batch, lam)
+                loss_value, grads = grad(model, x_mixup, y_mixup)
+            else:
+                loss_value, grads = grad(model, x_batch, y_batch)
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
             epoch_loss_avg.update_state(loss_value)
         epoch_loss = epoch_loss_avg.result().numpy()
