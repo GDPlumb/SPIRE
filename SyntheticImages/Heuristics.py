@@ -38,38 +38,40 @@ def heuristic_3(im, meta, use_strong = False):
     return (im_new, -1)
     
 # Augmentation
-
-def augment(X, Y, meta, heuristic):
-
-    X_aug = np.copy(X)
-    Y_aug = np.copy(Y)
-
+def apply_heuristic(X, Y, meta, heuristic):
+    n = X.shape[0]
     X_new = []
     Y_new = []
-
-    n = X_aug.shape[0]
-
     for i in range(n):
-
-        im = X_aug[i]
-        m = meta[i]
-
-        out = heuristic(im, m)
-
+        out = heuristic(X[i], meta[i])
         if out is not None:
             X_new.append(out[0])
-            
             if out[1] != -1:
                 Y_new.append(out[1])
             else:
-                Y_new.append(np.squeeze(Y_aug[i]))
+                Y_new.append(np.squeeze(Y[i]))
+        else:
+            X_new.append(None)
+            Y_new.append(None)
+    return X_new, Y_new
     
-
+def merge(X, Y, X_aug, Y_aug):
+    
+    X_new = []
+    for x in X_aug:
+        if x is not None:
+            X_new.append(x)
+            
+    Y_new = []
+    for y in Y_aug:
+        if y is not None:
+            Y_new.append(y)
+            
     X_new = np.float32(np.array(X_new))
     Y_new = np.expand_dims(np.float32(np.array(Y_new)), axis = 1)
 
-    X_aug = np.vstack((X_aug, X_new))
-    Y_aug = np.vstack((Y_aug, Y_new))
+    X_aug = np.vstack((X, X_new))
+    Y_aug = np.vstack((Y, Y_new))
     
     return X_aug, Y_aug
 
@@ -92,5 +94,4 @@ def get_ordered_map(meta, index):
             map_ordered = np.logical_and(map_ordered, np.logical_not(m_later))
         return map_ordered
     else:
-        print("bounce")
         return np.zeros((64, 64), dtype = bool)
