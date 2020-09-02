@@ -31,8 +31,7 @@ def generate(mode, n, p, n_neutral = 200):
 def train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, name, model_load = None,
                 lr = 0.001, step_size = 2, gamma = 0.75, num_epochs = 50,
                 X_train_aug = None, Y_train_aug = None, X_val_aug = None, Y_val_aug = None, augment = None, # Do we want to use counterfactual data?
-                mixup = False, mixup_alpha = 0.2, # Do we want to use mixup?
-                paired = False, # Do we want to pair the original and the counterfactual data?
+                mixup_weight = None, mixup_alpha = 0.1, # Do we want to use mixup as a regularizer?
                 ):
                 
     if augment == 'standard':
@@ -42,12 +41,8 @@ def train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neut
     
     # Configure the dataloaders
     datasets = {}
-    if paired:
-        datasets['train'] = PairedDataset(X_train, Y_train, X_train_aug, Y_train_aug)
-        datasets['val'] = PairedDataset(X_val, Y_val, X_val_aug, Y_val_aug)
-    else:
-        datasets['train'] = StandardDataset(X_train, Y_train)
-        datasets['val'] = StandardDataset(X_val, Y_val)
+    datasets['train'] = StandardDataset(X_train, Y_train)
+    datasets['val'] = StandardDataset(X_val, Y_val)
     datasets['test'] = StandardDataset(X_test, Y_test)
     datasets['test_neutral'] = StandardDataset(X_neutral, Y_neutral)
 
@@ -68,7 +63,7 @@ def train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neut
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = step_size, gamma = gamma)
     
     # Train the model
-    model = train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs = num_epochs, mixup = mixup, mixup_alpha = mixup_alpha, paired = paired, verbose = False)
+    model = train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs = num_epochs, mixup_weight = mixup_weight, mixup_alpha = mixup_alpha, verbose = False)
     torch.save(model.state_dict(), '{}.pt'.format(name))
     
     # Evaluate the model
@@ -102,58 +97,28 @@ def generate_augmented(mode):
     with open('data_augmented.npy', 'wb') as f:
         np.save(f, [X_train_aug, Y_train_aug, X_val_aug, Y_val_aug])
         
-def train_augmented(num_epochs = 25):
+def train_augmented():
     # Load the Data
     X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, meta_train, meta_val, meta_test = np.load(open('data.npy', 'rb'), allow_pickle = True)
     X_train_aug, Y_train_aug, X_val_aug, Y_val_aug = np.load(open('data_augmented.npy', 'rb'), allow_pickle = True)
     
     # Train and evaluate
     model = train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, 'model_augmented', model_load = 'model_original',
-                        num_epochs = num_epochs,
                         X_train_aug = X_train_aug, Y_train_aug = Y_train_aug, X_val_aug = X_val_aug, Y_val_aug = Y_val_aug, augment = 'standard')
-    
-def train_mixup(num_epochs = 25):
+ 
+def train_mixup():
     # Load the Data
     X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, meta_train, meta_val, meta_test = np.load(open('data.npy', 'rb'), allow_pickle = True)
     X_train_aug, Y_train_aug, X_val_aug, Y_val_aug = np.load(open('data_augmented.npy', 'rb'), allow_pickle = True)
-    
-    # Train and evaluate
-    model = train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, 'model_mixup', model_load = 'model_original',
-                        num_epochs = num_epochs,
-                        X_train_aug = X_train_aug, Y_train_aug = Y_train_aug, X_val_aug = X_val_aug, Y_val_aug = Y_val_aug, augment = 'standard',
-                        mixup = True)
-
-def train_mixup_paired(num_epochs = 25, mixup_alpha = 0.0001):
-    # Load the Data
-    X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, meta_train, meta_val, meta_test = np.load(open('data.npy', 'rb'), allow_pickle = True)
-    X_train_aug, Y_train_aug, X_val_aug, Y_val_aug = np.load(open('data_augmented.npy', 'rb'), allow_pickle = True)
-    
-    Y_train_aug = np.expand_dims(Y_train_aug, axis = 1)
-    Y_val_aug = np.expand_dims(Y_val_aug, axis = 1)
         
     # Train and evaluate
-    model = train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, 'model_mixup_paired', model_load = 'model_original',
-                        num_epochs = num_epochs,
-                        X_train_aug = X_train_aug, Y_train_aug = Y_train_aug, X_val_aug = X_val_aug, Y_val_aug = Y_val_aug,
-                        mixup = True, mixup_alpha = mixup_alpha,
-                        paired = True)
-
-# NOTE:  This assumes that Object and Object_aug are counterfactuals
-# - This is fine for the synthetic datasets, but doesn't directly translate to real image datasest (where some images have [0, ..., inf) counterfactuals instead of exactly 1)
-def train_augmented_paired(num_epochs = 25):
-    # Load the Data
-    X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, meta_train, meta_val, meta_test = np.load(open('data.npy', 'rb'), allow_pickle = True)
-    X_train_aug, Y_train_aug, X_val_aug, Y_val_aug = np.load(open('data_augmented.npy', 'rb'), allow_pickle = True)
-    
-    Y_train_aug = np.expand_dims(Y_train_aug, axis = 1)
-    Y_val_aug = np.expand_dims(Y_val_aug, axis = 1)
-    
-    # Train and evaluate
-    model = train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, 'model_augmented_paired', model_load = 'model_original',
-                        num_epochs = num_epochs,
-                        X_train_aug = X_train_aug, Y_train_aug = Y_train_aug, X_val_aug = X_val_aug, Y_val_aug = Y_val_aug,
-                        paired = True)
-
+    model = train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, 'model_mixup', model_load = 'model_original',
+                        X_train_aug = X_train_aug, Y_train_aug = Y_train_aug, X_val_aug = X_val_aug, Y_val_aug = Y_val_aug, augment = 'standard',
+                        mixup_weight = 0.25, mixup_alpha = 0.2)
+                        
+def train_test():
+    train_mixup()
+                        
 if __name__ == '__main__':
 
     task = sys.argv[1]
@@ -162,19 +127,19 @@ if __name__ == '__main__':
     print(task)
     print('')
     
-    test = True
-    
-    if test:
-        base_location = '/media/gregory/HDD/CounterVision/Test/'
+    base_location = '/media/gregory/HDD/CounterVision/SyntheticImages/'
 
+    if task == 'test':
+        # Remove old test results
+        os.chdir(base_location)
+        os.system("find -name '*model_test*' | xargs rm")
+        
+        # Configuration
         modes = [1, 2]
         n_array = [10000, 15000]
         p_array = [0.95]
-        trial_array = [0, 1]
-        
+        trial_array = [0,1,2,3,4]
     else:
-        base_location = '/media/gregory/HDD/CounterVision/SyntheticImages/'
-
         modes = [1,2,3]
         n_array = [5000, 10000, 15000, 20000]
         p_array = [0.5, 0.8, 0.85, 0.9, 0.95, 1.0]
@@ -191,7 +156,9 @@ if __name__ == '__main__':
                     Path(save_location).mkdir(parents = True, exist_ok = True)
                     os.chdir(save_location)
                     
-                    if task == 'generate':
+                    if task == 'test':
+                        train_test()
+                    elif task == 'generate':
                         generate(mode, n, p)
                     elif task == 'model_original':
                         train_original()
@@ -199,10 +166,3 @@ if __name__ == '__main__':
                         generate_augmented(mode)
                     elif task == 'model_augmented':
                         train_augmented()
-                    elif task == 'model_mixup':
-                        train_mixup()
-                    elif task == 'model_augmented_paired':
-                        train_augmented_paired()
-                    elif task == 'model_mixup_paired':
-                        train_mixup_paired()
-
