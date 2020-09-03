@@ -3,9 +3,8 @@
 *_*.pdf
 *.ipynb_checkpoints
 
-Code/Scratch.py
-
-SyntheticImages/Models/
+SyntheticImages/Test.ipynb
+SyntheticImages/Configs.json
 
 COCO/DataAugmentation/*
 COCO/Models/*
