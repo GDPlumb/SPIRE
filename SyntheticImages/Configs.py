@@ -10,7 +10,7 @@ if config_choice == 'check':
     mode_list = [1]
     n_list = [15000]
     p_list = [0.95]
-    trial_list = [0]
+    trial_list = [0, 1]
 if config_choice == 'test':
     mode_list = [1, 2]
     n_list = [10000, 15000]

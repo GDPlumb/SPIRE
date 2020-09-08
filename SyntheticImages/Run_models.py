@@ -17,6 +17,7 @@ def train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neut
                 lr = 0.001, step_size = 2, gamma = 0.75, num_epochs = 50,
                 X_train_aug = None, Y_train_aug = None, X_val_aug = None, Y_val_aug = None, augment = None, # Do we want to use counterfactual data?
                 mixup_weight = None, mixup_alpha = 0.1, # Do we want to use mixup as a regularizer?
+                rrr_weight = None # Do we want to use RRR as a regularizer?
                 ):
                 
     if augment == 'standard':
@@ -26,8 +27,12 @@ def train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neut
     
     # Configure the dataloaders
     datasets = {}
-    datasets['train'] = StandardDataset(X_train, Y_train)
-    datasets['val'] = StandardDataset(X_val, Y_val)
+    if augment == 'paired':
+        datasets['train'] = PairedDataset(X_train, Y_train, X_train_aug, Y_train_aug)
+        datasets['val'] = PairedDataset(X_val, Y_val, X_val_aug, Y_val_aug)
+    else:
+        datasets['train'] = StandardDataset(X_train, Y_train)
+        datasets['val'] = StandardDataset(X_val, Y_val)
     datasets['test'] = StandardDataset(X_test, Y_test)
     datasets['test_neutral'] = StandardDataset(X_neutral, Y_neutral)
 
@@ -48,7 +53,11 @@ def train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neut
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = step_size, gamma = gamma)
     
     # Train the model
-    model = train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs = num_epochs, mixup_weight = mixup_weight, mixup_alpha = mixup_alpha, verbose = False)
+    model = train_model(model, dataloaders, criterion, optimizer, scheduler,
+                        num_epochs = num_epochs,
+                        mixup_weight = mixup_weight, mixup_alpha = mixup_alpha,
+                        rrr_weight = rrr_weight,
+                        verbose = False)
     torch.save(model.state_dict(), '{}.pt'.format(name))
     
     # Evaluate the model
@@ -84,9 +93,20 @@ def train_mixup():
     model = train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, 'model_test', model_load = 'model_original',
                         X_train_aug = X_train_aug, Y_train_aug = Y_train_aug, X_val_aug = X_val_aug, Y_val_aug = Y_val_aug, augment = 'standard',
                         mixup_weight = 0.25, mixup_alpha = 0.2)
+ 
+def train_rrr():
+    # Load the Data
+    X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, meta_train, meta_val, meta_test = np.load(open('data.npy', 'rb'), allow_pickle = True)
+    X_train_aug, Y_train_aug, X_val_aug, Y_val_aug = np.load(open('data_augmented.npy', 'rb'), allow_pickle = True)
+        
+    # Train and evaluate
+    model = train_base(X_train, X_val, X_test, X_neutral, Y_train, Y_val, Y_test, Y_neutral, 'model_test',
+                        model_load = 'model_original', num_epochs = 25,
+                        X_train_aug = X_train_aug, Y_train_aug = Y_train_aug, X_val_aug = X_val_aug, Y_val_aug = Y_val_aug, augment = 'paired',
+                        rrr_weight = 0.1)
                         
 def train_test():
-    train_mixup()
+    train_rrr()
                         
 if __name__ == '__main__':
 

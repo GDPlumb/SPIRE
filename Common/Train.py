@@ -17,6 +17,7 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
     
 def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs = 5,
                 mixup_weight = None, mixup_alpha = 0.1,
+                rrr_weight = None,
                 verbose = True):
     since = time.time()
 
@@ -46,13 +47,19 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs 
                 x = x.to('cuda')
                 batch_size = x.size(0)
                 y = y.to('cuda')
-                    
+                                
+                if rrr_weight is not None:
+                    x_prime = data[2]
+                    x_prime = x_prime.to('cuda')
+
+                    x.requires_grad = True
+                                        
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
                 # forward
                 # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
+                with torch.set_grad_enabled(phase == 'train' or rrr_weight is not None):
                     pred = model(x)
                     loss_main = criterion(pred, y)
 
@@ -60,11 +67,20 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs 
                         x_mixed, y_a, y_b, lam = mixup_data(x, y, mixup_alpha)
                         pred_mixed = model(x_mixed)
                         loss_mixed = mixup_criterion(criterion, pred, y_a, y_b, lam)
+   
+                    if rrr_weight is not None:
+                        diff = torch.max(1.0 * (x != x_prime), 1, keepdim = True, out = None)[0]
                         
+                        prob = torch.sigmoid(pred)
+                        grad = torch.autograd.grad(prob, x, grad_outputs = torch.ones(prob.shape).to('cuda'), create_graph = True)[0]
+                        loss_rrr = torch.norm(diff * grad, 2)
+                     
                     # backward + optimize only if in training phase
                     if phase == 'train':
                         if mixup_weight is not None:
                             loss = loss_main + mixup_weight * loss_mixed
+                        elif rrr_weight is not None:
+                            loss = loss_main + rrr_weight * loss_rrr
                         else:
                             loss = loss_main
                         loss.backward()
