@@ -6,10 +6,8 @@
 SyntheticImages/Test.ipynb
 SyntheticImages/Configs.json
 
-COCO/DataAugmentation/*
 COCO/Models/*
-
-COCO_new/Models/*
-COCO_new/Configs.json
-COCO_new/Test.ipynb
+COCO/Search/*
+COCO/Configs.json
+COCO/Test.ipynb
 

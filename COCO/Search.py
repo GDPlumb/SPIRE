@@ -6,15 +6,16 @@ import os
 import torch
 import torchvision.models as models
 
-from COCODataset import COCODataset, MaskedCOCOImages, my_dataloader
 from COCOWrapper import COCOWrapper
+from Dataset import ImageDataset, my_dataloader
+from FormatData import format_spurious
 from ModelWrapper import ModelWrapper
 
 def make_key(name_primary, name_spurious):
     return '{}-{}'.format(name_primary, name_spurious).replace(' ', '')
 
 def id_from_path(path):
-    return np.int(path.split('/')[-1].split('.')[0].lstrip('0'))
+    return path.split('/')[-1].split('.')[0].lstrip('0')
 
 def class_matrix(filenames, dataset_dict, pred_dict, index_primary):
     counts = [0,0,0,0] #[TP, FP, FN, TN]
@@ -40,9 +41,6 @@ if __name__ == "__main__":
     os.system('rm -rf Search')
     os.system('mkdir Search')
     
-    # Computational Parameters
-    workers = 8
-    
     # Experimental Configuration
     root = '/home/gregory/Datasets/COCO'
     mode = 'train'
@@ -57,18 +55,19 @@ if __name__ == "__main__":
         names.append(cat['name'])
     n = len(names)
 
-    # Setup the COCODataset
-    dataset = COCODataset(root = root, mode = mode, year = year, get_names = True)
-    dataloader = my_dataloader(dataset, num_workers = workers)
+    # Setup the COCO Dataset
+    dataset = ImageDataset(['{}/{}{}-info.p'.format(root, mode, year)], get_names = True)
+    dataloader = my_dataloader(dataset)
     
     # Load a model to use for the search
     model = models.mobilenet_v2(pretrained = True)
     model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 91)
     optim_params = model.classifier.parameters()
-    model.load_state_dict(torch.load('./Models/Initial/model_0.pt'))
+    model.load_state_dict(torch.load('./Models/initial-transfer/model_0.pt'))
     model.cuda()
     model.eval()
     
+    print('Predicting Original Dataset')
     wrapper = ModelWrapper(model, get_names = True)
     # Get the model predictions on the dataset
     a, b, c = wrapper.predict_dataset(dataloader)
@@ -76,33 +75,40 @@ if __name__ == "__main__":
     pred_dict = {}
     dataset_dict = {}
     for i in range(len(a)):
-        pred_dict[c[i]] = a[i]
-        dataset_dict[c[i]] = b[i]
+        id = id_from_path(c[i])
+        pred_dict[id] = a[i]
+        dataset_dict[id] = b[i]
     
-    # Get the model predictions on the dataset with the spurious object removed.  NOTE:  This is the entire dataset, not just the relevant parts
+    # Get the model predictions on the dataset with the spurious object removed
+    # NOTE:  This is the entire dataset, not just the relevant parts
     for name_spurious in names:
+        print('Spurious: ', name_spurious)
         index_spurious = coco.get_class_id(name_spurious)
 
         # Divide the images into two sets, one with the spurious object and one without
         images_with_spurious = []
         images_without_spurious = []
-        for item in dataset.ids:
-            filename = item[0]
-            label = item[1]
+        for i in range(len(dataset.filenames)):
+            filename = id_from_path(dataset.filenames[i])
+            label = dataset.labels[i]
             if label[index_spurious] == 1:
                 images_with_spurious.append(filename)
             else:
                 images_without_spurious.append(filename)
         
         # Setup a masked dataset for the images with the spurious object
-        dataset_spurious = MaskedCOCOImages(images_with_spurious, coco.coco, mask_apply = True, mask_classes = [name_spurious], get_names = True)
-        dataloader_spurious = my_dataloader(dataset_spurious, num_workers = workers)
+        format_spurious(root, mode, year, name_spurious, use_tmp = True, coco = coco.coco)
+        dataset_spurious = ImageDataset(['{}/{}{}-tmp-info.p'.format(root, mode, year)], get_names = True)
+        #dataset_spurious = MaskedCOCOImages(images_with_spurious, coco.coco, mask_apply = True, mask_classes = [name_spurious], get_names = True)
+        dataloader_spurious = my_dataloader(dataset_spurious)
         
         # Get the model predictions on the images with the spurious object once that object has been removed
+        print('Predicting Spurious Dataset')
         a, b, c = wrapper.predict_dataset(dataloader_spurious)
         pred_without_spurious_dict = {}
         for i in range(len(a)):
-            pred_without_spurious_dict[c[i]] = a[i]
+            id = id_from_path(c[i])
+            pred_without_spurious_dict[id] = a[i]
         
         # Analyze how the spurious object relates to each possible primary object
         for name_primary in names:
@@ -119,9 +125,9 @@ if __name__ == "__main__":
             # Evaluate the strength of the co-occurence between the two objects
             images_with_both = []
             images_with_just_primary = []
-            for item in dataset.ids:
-                filename = item[0]
-                label = item[1]
+            for i in range(len(dataset.filenames)):
+                filename = id_from_path(dataset.filenames[i])
+                label = dataset.labels[i]
                 if label[index_primary] == 1:
                     if label[index_spurious] == 1:
                         images_with_both.append(filename)
