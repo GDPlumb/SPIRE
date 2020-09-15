@@ -20,14 +20,14 @@ def run(config):
     trial = config[2]
     task = config[3]
         
-    if task == 'initial-transfer':
+    if task in ['initial-transfer', 'initial-tune']:
         sources = {}
         for mode in ['train', 'val']:
             sources[mode] = []
             
             sources[mode].append('{}/{}{}-info.p'.format(root, mode, year))
             
-    if task == 'random-transfer':
+    if task in ['random-transfer', 'random-tune']:
         sources = {}
         for mode in ['train', 'val']:
             sources[mode] = []
@@ -57,7 +57,7 @@ def run(config):
             sources[mode].append('{}/{}{}-{}-info.p'.format(root, mode, year, spurious_class))
 
         
-    if task in ['initial-transfer', 'random-transfer', 'augment-transfer', 'both-transfer']:
+    if task in ['initial-transfer', 'random-transfer', 'augment-transfer', 'both-transfer', 'initial-tune', 'random-tune']:
     
         datasets = {}
         dataloaders = {}
@@ -74,10 +74,13 @@ def run(config):
 
         model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 91)
         optim_params = model.classifier.parameters()
-    
+    elif task.split('-')[1] == 'tune':
+        model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 91)
+        model.load_state_dict(torch.load('./Models/initial-transfer/model_0.pt'))
+        optim_params = model.parameters()
+        
     model.cuda()
-    
-    # Run transfer learning
+
     criterion = torch.nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(optim_params, lr = 0.001)
     scheduler = lr_scheduler.StepLR(optimizer, step_size = 2, gamma = 0.1)

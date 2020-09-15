@@ -46,6 +46,8 @@ if __name__ == "__main__":
     mode = 'train'
     year = '2017'
     base = '{}/{}{}/'.format(root, mode, year)
+    
+    config = 'initial-tune'
 
     # Setup COCOWrapper
     coco = COCOWrapper(root = root, mode = mode, year = year)
@@ -62,8 +64,7 @@ if __name__ == "__main__":
     # Load a model to use for the search
     model = models.mobilenet_v2(pretrained = True)
     model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 91)
-    optim_params = model.classifier.parameters()
-    model.load_state_dict(torch.load('./Models/initial-transfer/model_0.pt'))
+    model.load_state_dict(torch.load('./Models/{}/model_0.pt'.format(config)))
     model.cuda()
     model.eval()
     
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     # Get the model predictions on the dataset with the spurious object removed
     # NOTE:  This is the entire dataset, not just the relevant parts
     for name_spurious in names:
-        print('Spurious: ', name_spurious)
+        print('Working on: ', name_spurious)
         index_spurious = coco.get_class_id(name_spurious)
 
         # Divide the images into two sets, one with the spurious object and one without
@@ -96,6 +97,7 @@ if __name__ == "__main__":
             else:
                 images_without_spurious.append(filename)
         
+        print('Masking Dataset')
         # Setup a masked dataset for the images with the spurious object
         format_spurious(root, mode, year, name_spurious, use_tmp = True, coco = coco.coco)
         dataset_spurious = ImageDataset(['{}/{}{}-tmp-info.p'.format(root, mode, year)], get_names = True)
@@ -103,7 +105,7 @@ if __name__ == "__main__":
         dataloader_spurious = my_dataloader(dataset_spurious)
         
         # Get the model predictions on the images with the spurious object once that object has been removed
-        print('Predicting Spurious Dataset')
+        print('Predicting')
         a, b, c = wrapper.predict_dataset(dataloader_spurious)
         pred_without_spurious_dict = {}
         for i in range(len(a)):
@@ -111,6 +113,7 @@ if __name__ == "__main__":
             pred_without_spurious_dict[id] = a[i]
         
         # Analyze how the spurious object relates to each possible primary object
+        print('Analyzing')
         for name_primary in names:
             index_primary = coco.get_class_id(name_primary)
             key = make_key(name_primary, name_spurious)

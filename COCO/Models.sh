@@ -1,5 +1,5 @@
 
-task='augment-transfer'
+task='random-tune'
 spurious_class='person'
 
 root='/home/gregory/Datasets/COCO'
