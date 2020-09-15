@@ -18,4 +18,14 @@ conda activate countervision
 
 #python FormatData.py $root 'train' $year 'split' $spurious
 
+#python FormatData.py $root 'val' $year 'random-pixel'
+python FormatData.py $root 'train' $year 'random-pixel'
+
+conda deactivate
+
+conda activate edge-connect
+
+#python FormatData_InPainter.py $root 'val' $year 'random'
+python FormatData_InPainter.py $root 'train' $year 'random'
+
 conda deactivate

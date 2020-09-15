@@ -116,7 +116,7 @@ def apply_mask(img, mask, value = 'default'):
     img = Image.fromarray(img_np)
     return img
 
-def mask_images(images, coco, base_location, save_location, chosen_id = None, mode = 'box', unmask = True):
+def mask_images(images, coco, base_location, save_location, chosen_id = None, mode = 'box', unmask = True, use_png = False):
     filenames = []
     labels = []
     for img_obj in images:
@@ -147,46 +147,17 @@ def mask_images(images, coco, base_location, save_location, chosen_id = None, mo
             img = apply_mask(img, mask)
 
         # Save the output
+        if use_png: # Preserves exact pixel values - used to pass the masked pixels to the inpainter
+            filename = '{}.png'.format(filename.split('.')[0])
         filenames.append(filename)
         labels.append(label)
         img.save(filename)
         
     return filenames, labels
-        
-def format_random(root, mode, year):
-
-    # Prep the data directory
-    base_location = '{}/{}{}'.format(root, mode, year)
-    save_location = '{}-random'.format(base_location)
-    os.system('rm -rf {}'.format(save_location))
-    os.system('mkdir {}'.format(save_location))
     
-    # Create a copy of the data where each image has a random object category masked
-    coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
-    images = coco.loadImgs(coco.getImgIds())
+def mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = 'box', unmask = True, use_png = False, workers = 12):
 
-    filenames, labels = mask_images(images, coco, base_location, save_location)
-        
-    with open('{}-info.p'.format(save_location), 'wb') as f:
-        pickle.dump([filenames, labels], f)
-        
-def format_spurious(root, mode, year, spurious, workers = 12, use_tmp = False, coco = None):
-
-    # Prep the data directory
-    base_location = '{}/{}{}'.format(root, mode, year)
-    if use_tmp:
-        save_location = '{}-tmp'.format(base_location, spurious)
-    else:
-        save_location = '{}-{}'.format(base_location, spurious)
-    os.system('rm -rf {}'.format(save_location))
-    os.system('mkdir {}'.format(save_location))
-    
-    # Create a copy of the data where each image has a random object category masked
-    if coco is None:
-        coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
-    spurious_id = coco.getCatIds(catNms = [spurious])[0]
-    images = coco.loadImgs(coco.getImgIds(catIds = spurious_id))
-    
+    # Split the images to pass them to the workers
     images_split = []
     for i in range(workers):
         images_split.append([])
@@ -195,15 +166,18 @@ def format_spurious(root, mode, year, spurious, workers = 12, use_tmp = False, c
     for image in images:
         images_split[next_worker].append(image)
         next_worker = (next_worker + 1) % workers
-    
-    def mask_images_worker(id, images_split = images_split, coco = coco, base_location = base_location, save_location = save_location, spurious_id = spurious_id):
-        names, labels = mask_images(images_split[id], coco, base_location, save_location, chosen_id = spurious_id)
+        
+    # Define the worker function
+    def mask_images_worker(id, images_split = images_split, coco = coco, base_location = base_location, save_location = save_location, chosen_id = chosen_id, mode = mode, unmask = unmask, use_png = use_png):
+        names, labels = mask_images(images_split[id], coco, base_location, save_location, chosen_id = chosen_id, mode = mode, unmask = unmask, use_png = use_png)
         with open('tmp-{}.p'.format(id), 'wb') as f:
             pickle.dump([names, labels], f)
-                
+        
+    # Run
     pool = ThreadPool(processes = workers)
     pool.map(mask_images_worker, range(workers))
     
+    # Collect the output
     filenames = []
     labels = []
     for i in range(workers):
@@ -214,10 +188,52 @@ def format_spurious(root, mode, year, spurious, workers = 12, use_tmp = False, c
             filenames.append(data[0][j])
             labels.append(data[1][j])
     
-    os.system('rm tmp-*.p')
-            
+    # Save the output
     with open('{}-info.p'.format(save_location), 'wb') as f:
         pickle.dump([filenames, labels], f)
+        
+    # Clean up
+    os.system('rm tmp-*.p')
+
+def format_random(root, mode, year, mask_mode = 'box', unmask = True, use_png = False):
+
+    # Prep the data directory
+    base_location = '{}/{}{}'.format(root, mode, year)
+    save_location = '{}-random'.format(base_location)
+    if mask_mode == 'pixel':
+        save_location = '{}-pixel'.format(save_location)
+        
+    os.system('rm -rf {}'.format(save_location))
+    os.system('mkdir {}'.format(save_location))
+    
+    # Create a copy of the data where each image has a random object category masked
+    coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
+    images = coco.loadImgs(coco.getImgIds())
+
+    # Run
+    mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = mask_mode, unmask = unmask, use_png = use_png)
+
+def format_spurious(root, mode, year, spurious, mask_mode = 'box', unmask = True, use_png = False, coco = None, use_tmp = False):
+
+    # Prep the data directory
+    base_location = '{}/{}{}'.format(root, mode, year)
+    if use_tmp:
+        save_location = '{}/tmp'.format(root)
+    else:
+        save_location = '{}-{}'.format(base_location, spurious)
+        if mask_mode == 'pixel':
+            save_location = '{}-pixel'.format(save_location)
+    os.system('rm -rf {}'.format(save_location))
+    os.system('mkdir {}'.format(save_location))
+    
+    # Create a copy of the data where each image has a random object category masked
+    if coco is None:
+        coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
+    spurious_id = coco.getCatIds(catNms = [spurious])[0]
+    images = coco.loadImgs(coco.getImgIds(catIds = spurious_id))
+    
+    # Run
+    mask_images_parallel(images, coco, base_location, save_location, chosen_id = spurious_id, mode = mask_mode, unmask = unmask, use_png = use_png)
 
 if __name__ == '__main__':
 
@@ -234,6 +250,8 @@ if __name__ == '__main__':
         format_standard(root, mode, year)
     elif step == 'random':
         format_random(root, mode, year)
+    elif step == 'random-pixel':
+        format_random(root, mode, year, mask_mode = 'pixel', use_png = True)
     elif step == 'spurious':
         spurious = sys.argv[5]
         format_spurious(root, mode, year, spurious)
