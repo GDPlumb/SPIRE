@@ -20,7 +20,7 @@ for trial in trial_list:
 
     configs_trial = []
 
-    if task in ['initial-transfer', 'random-transfer', 'initial-tune', 'random-tune']:
+    if task in ['initial-transfer', 'random-transfer', 'initial-tune', 'random-tune', 'random-tune-paint']:
         configs_trial.append([root, year, trial, task])
         
     if task in ['augment-transfer', 'both-transfer']:

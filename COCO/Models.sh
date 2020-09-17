@@ -1,5 +1,5 @@
 
-task='random-tune'
+task='random-tune-paint'
 spurious_class='person'
 
 root='/home/gregory/Datasets/COCO'

@@ -35,6 +35,14 @@ def run(config):
             sources[mode].append('{}/{}{}-info.p'.format(root, mode, year))
             sources[mode].append('{}/{}{}-random-info.p'.format(root, mode, year))
             
+    if task in ['random-tune-paint']:
+        sources = {}
+        for mode in ['train', 'val']:
+            sources[mode] = []
+            
+            sources[mode].append('{}/{}{}-info.p'.format(root, mode, year))
+            sources[mode].append('{}/{}{}-random-paint-info.p'.format(root, mode, year))
+            
     if task == 'augment-transfer':
         sources = {}
         for mode in ['train', 'val']:
@@ -57,7 +65,7 @@ def run(config):
             sources[mode].append('{}/{}{}-{}-info.p'.format(root, mode, year, spurious_class))
 
         
-    if task in ['initial-transfer', 'random-transfer', 'augment-transfer', 'both-transfer', 'initial-tune', 'random-tune']:
+    if task in ['initial-transfer', 'random-transfer', 'augment-transfer', 'both-transfer', 'initial-tune', 'random-tune', 'random-tune-paint']:
     
         datasets = {}
         dataloaders = {}
