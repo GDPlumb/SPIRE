@@ -9,6 +9,15 @@ import sys
 
 from COCOWrapper import COCOWrapper
 
+def F1(p, r):
+    f = []
+    for i in range(len(p)):
+        if p[i] == 0 and r[i] == 0:
+            f.append(0)
+        else:
+            f.append(2 * p[i] * r[i] / (p[i] + r[i]))
+    return f
+
 if __name__ == '__main__':
 
     print(sys.argv)
@@ -39,10 +48,10 @@ if __name__ == '__main__':
             p_mean.append(np.mean(p))
             r_mean.append(np.mean(r))
                                 
-            plt.scatter(p, r, label = task)
+            plt.scatter(p, r, label = '{}: F1 {}'.format(task, np.round(np.mean(F1(p, r)), 3)))
         
         plt.scatter(p_mean, r_mean, marker = '*', s = 500, c = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(p_mean)])
-
+        plt.legend()
     
     tasks = ['initial-transfer', 'random-transfer', 'augment-transfer', 'both-transfer', 'initial-tune', 'random-tune', 'random-tune-paint']
 
@@ -76,7 +85,7 @@ if __name__ == '__main__':
         p_mean.append(np.mean(p))
         r_mean.append(np.mean(r))
                             
-        plt.scatter(p, r, label = task)
+        plt.scatter(p, r, label = '{}: F1 {}'.format(task, np.round(np.mean(F1(p, r)), 3)))
     plt.legend()
     plt.scatter(p_mean, r_mean, marker = '*', s = 500, c = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(p_mean)])
             
