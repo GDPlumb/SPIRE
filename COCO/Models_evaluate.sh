@@ -15,5 +15,4 @@ conda activate countervision
 #python Models_evaluate.py $root $year $spurious_class 'random-tune'
 python Models_evaluate.py $root $year $spurious_class 'random-tune-paint'
 
-
 conda deactivate

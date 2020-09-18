@@ -18,6 +18,8 @@ if __name__ == '__main__':
     spurious_class = sys.argv[3]
     task = sys.argv[4]
     
+    print(sys.argv)
+    
     # Setup Datafiles
     datafiles = []
     datafiles.append('{}/val{}-info.p'.format(root, year))
@@ -36,12 +38,14 @@ if __name__ == '__main__':
     wrapper = ModelWrapper(model)
 
     for file in glob.glob('./Models/{}/*.pt'.format(task)):
+        print('Model: ', file)
         
         results = {}
         
         model.load_state_dict(torch.load(file))
         
         for datafile in datafiles:
+            print('Dataset: ', datafile)
         
             dataset = ImageDataset([datafile])
             dataloader = my_dataloader(dataset)
@@ -49,7 +53,7 @@ if __name__ == '__main__':
             y_hat, y_true = wrapper.predict_dataset(dataloader)
             precision, recall = wrapper.metrics(y_hat, y_true)
             
-            results[datafile] = [precision, recall]
-    
+            results[datafile] = [precision, recall, y_hat, y_true]
+                
         with open('{}.p'.format(file[:-3]), 'wb') as f:
             pickle.dump(results, f)
