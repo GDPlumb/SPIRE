@@ -53,7 +53,7 @@ if __name__ == '__main__':
         plt.scatter(p_mean, r_mean, marker = '*', s = 500, c = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(p_mean)])
         plt.legend()
     
-    tasks = ['initial-transfer', 'random-transfer', 'augment-transfer', 'both-transfer', 'initial-tune', 'random-tune', 'random-tune-paint']
+    tasks = ['initial-tune', 'random-tune-paint', 'Old/initial-tune']
 
     # Format the plot grid
     num_plots = 4

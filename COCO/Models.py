@@ -10,7 +10,7 @@ import torchvision.models as models
 from Dataset import ImageDataset, my_dataloader
 
 sys.path.insert(0, '../Common/')
-from Train import train_model
+from Train_new import train_model
 
 def run(config):
     print(config)
@@ -90,11 +90,12 @@ def run(config):
     model.cuda()
 
     criterion = torch.nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(optim_params, lr = 0.001)
-    scheduler = lr_scheduler.StepLR(optimizer, step_size = 2, gamma = 0.1)
+    lr = 0.001
+    optimizer = optim.Adam(optim_params, lr = lr)
 
-    model = train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs = 5, verbose = False)
-    torch.save(model.state_dict(), './Models/{}/model_{}.pt'.format(task, trial))
+    name = './Models/{}/model_{}'.format(task, trial)
+    model = train_model(model, dataloaders, criterion, optimizer, lr, name = name)
+    torch.save(model.state_dict(), '{}.pt'.format(name))
 
 if __name__ == '__main__':
     
