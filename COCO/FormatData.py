@@ -29,38 +29,6 @@ def format_standard(root, mode, year):
     with open('{}/{}{}-info.p'.format(root, mode, year), 'wb') as f:
         pickle.dump([filenames, labels], f)
 
-def format_split(root, mode, year, splitting_class):
-
-    coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
-    
-    ids_all = coco.getImgIds()
-    ids_with = coco.getImgIds(catIds = coco.getCatIds(catNms = splitting_class))
-    ids_without = np.setdiff1d(ids_all, ids_with)
-    
-    ids = {}
-    ids['with'] = ids_with
-    ids['without'] = ids_without
-    
-    for option in ['with', 'without']:
-    
-        images = coco.loadImgs(ids[option])
-
-        filenames = []
-        labels = []
-        for img_obj in images:
-            filename = '{}/{}{}/{}'.format(root, mode, year, img_obj['file_name'])
-
-            anns = coco.loadAnns(coco.getAnnIds(img_obj['id'], iscrowd = None))
-            label = np.zeros((91), dtype = np.float32)  # Each 'label' vector is large enough for easy indexing, but this means it contains unused indices
-            for ann in anns:
-                label[ann['category_id']] = 1.0
-
-            filenames.append(filename)
-            labels.append(label)
-            
-        with open('{}/{}{}-{}-{}-info.p'.format(root, mode, year, option, splitting_class), 'wb') as f:
-            pickle.dump([filenames, labels], f)
-
 def get_mask(anns, mask_classes, coco, mode = 'box', unmask = True):
 
     # Find the mask for each object we want to remove
@@ -155,7 +123,7 @@ def mask_images(images, coco, base_location, save_location, chosen_id = None, mo
         
     return filenames, labels
     
-def mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = 'box', unmask = True, use_png = False, workers = 12):
+def mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = 'box', unmask = True, use_png = False, workers = 24):
 
     # Split the images to pass them to the workers
     images_split = []
@@ -255,6 +223,6 @@ if __name__ == '__main__':
     elif step == 'spurious':
         spurious = sys.argv[5]
         format_spurious(root, mode, year, spurious)
-    elif step == 'split':
+    elif step == 'spurious-pixel':
         spurious = sys.argv[5]
-        format_split(root, mode, year, spurious)
+        format_spurious(root, mode, year, spurious, mask_mode = 'pixel', use_png = True)
