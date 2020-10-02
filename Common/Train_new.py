@@ -16,7 +16,8 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
     return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
     
 def train_model(model, dataloaders, criterion, optimizer, lr,
-                lr_decay_rate = 0.5, lr_decay_delay = 4, lr_decay_count = 5, name = 'history'):
+                lr_decay_rate = 0.1, lr_decay_delay = 10, lr_decay_count = 2, max_epochs = None,
+                name = 'history'):
 
     best_model_wts = copy.deepcopy(model.state_dict())
     best_loss = np.inf
@@ -33,6 +34,10 @@ def train_model(model, dataloaders, criterion, optimizer, lr,
     
         # Check convergence and update the learning rate accordingly
         epoch += 1
+        if max_epochs is not None and epoch > max_epochs:
+            model.load_state_dict(best_model_wts)
+            return model
+
         if epoch - best_epoch > lr_decay_delay:
             decays += 1
             if decays > lr_decay_count:

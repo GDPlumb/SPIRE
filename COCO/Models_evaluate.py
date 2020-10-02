@@ -23,8 +23,6 @@ if __name__ == '__main__':
     # Setup Datafiles
     datafiles = []
     datafiles.append('{}/val{}-info.p'.format(root, year))
-    datafiles.append('{}/train{}-with-{}-info.p'.format(root, year, spurious_class))
-    datafiles.append('{}/train{}-without-{}-info.p'.format(root, year, spurious_class))
     datafiles.append('{}/val{}-{}-info.p'.format(root, year, spurious_class))
     
     # This prevents some weird crash

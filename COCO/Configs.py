@@ -20,13 +20,9 @@ for trial in trial_list:
 
     configs_trial = []
 
-    if task in ['initial-transfer', 'random-transfer', 'initial-tune', 'random-tune', 'random-tune-paint']:
+    if task in ['initial-transfer', 'initial-tune', 'random-tune', 'random-tune-paint']:
         configs_trial.append([root, year, trial, task])
         
-    if task in ['augment-transfer', 'both-transfer']:
-        spurious_class = sys.argv[5]
-        configs_trial.append([root, year, trial, task, spurious_class])
-    
     random.shuffle(configs_trial)
     
     for config in configs_trial:

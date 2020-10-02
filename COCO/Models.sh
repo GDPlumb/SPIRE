@@ -1,6 +1,5 @@
 
-task='random-tune-paint'
-spurious_class='person'
+task='initial-transfer'
 
 root='/home/gregory/Datasets/COCO'
 year='2017'
@@ -10,7 +9,7 @@ source /home/gregory/anaconda3/etc/profile.d/conda.sh
 
 conda activate countervision
 
-python Configs.py $root $year $num_workers $task $spurious_class
+python Configs.py $root $year $num_workers $task
 
 for ((i=0;i<$num_workers;i++))
 do

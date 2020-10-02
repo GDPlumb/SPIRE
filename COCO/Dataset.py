@@ -38,31 +38,32 @@ def get_transform():
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
+            
+def unpack_sources(sources):
+    filenames = []
+    labels = []
+    for source in sources:
+        with open(source, 'rb') as f:
+            data = pickle.load(f)
+            
+        for filename in data[0]:
+            filenames.append(filename)
+        
+        for label in data[1]:
+            labels.append(label)
+            
+    return filenames, labels
 
 class ImageDataset(VisionDataset):
 
-    def __init__(self, sources, get_names = False):
+    def __init__(self, filenames, labels, get_names = False):
         transform = get_transform()
         super(ImageDataset, self).__init__(None, None, transform, None)
-        
-        filenames = []
-        labels = []
-        for source in sources:
-            with open(source, 'rb') as f:
-                data = pickle.load(f)
-                
-            for filename in data[0]:
-                filenames.append(filename)
-            
-            for label in data[1]:
-                labels.append(label)
-                                                
         self.filenames = filenames
         self.labels = labels
         self.get_names = get_names
         
     def __getitem__(self, index):
-        
         img = self.transform(Image.open(self.filenames[index]).convert('RGB'))
         label = self.labels[index]
         if self.get_names:
