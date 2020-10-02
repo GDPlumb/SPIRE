@@ -6,7 +6,7 @@ import sys
 import torch
 import torchvision.models as models
 
-from Dataset import ImageDataset, my_dataloader
+from Dataset import unpack_sources, ImageDataset, my_dataloader
 
 from ModelWrapper import ModelWrapper
 
@@ -23,7 +23,10 @@ if __name__ == '__main__':
     # Setup Datafiles
     datafiles = []
     datafiles.append('{}/val{}-info.p'.format(root, year))
+    datafiles.append('{}/val{}-random-info.p'.format(root, year))
+    datafiles.append('{}/val{}-random-paint-info.p'.format(root, year))
     datafiles.append('{}/val{}-{}-info.p'.format(root, year, spurious_class))
+    datafiles.append('{}/val{}-{}-paint-info.p'.format(root, year, spurious_class))
     
     # This prevents some weird crash
     torch.multiprocessing.set_sharing_strategy('file_system')
@@ -45,7 +48,9 @@ if __name__ == '__main__':
         for datafile in datafiles:
             print('Dataset: ', datafile)
         
-            dataset = ImageDataset([datafile])
+            filenames, labels = unpack_sources([datafile])
+            
+            dataset = ImageDataset(filenames, labels)
             dataloader = my_dataloader(dataset)
             
             y_hat, y_true = wrapper.predict_dataset(dataloader)
