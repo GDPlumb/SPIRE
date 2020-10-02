@@ -7,7 +7,7 @@ import torch
 import torchvision.models as models
 
 from COCOWrapper import COCOWrapper
-from Dataset import ImageDataset, my_dataloader
+from Dataset import unpack_sources, ImageDataset, my_dataloader
 from FormatData import format_spurious
 from ModelWrapper import ModelWrapper
 
@@ -47,8 +47,6 @@ if __name__ == "__main__":
     year = '2017'
     base = '{}/{}{}/'.format(root, mode, year)
     
-    config = 'initial-tune'
-
     # Setup COCOWrapper
     coco = COCOWrapper(root = root, mode = mode, year = year)
 
@@ -58,13 +56,14 @@ if __name__ == "__main__":
     n = len(names)
 
     # Setup the COCO Dataset
-    dataset = ImageDataset(['{}/{}{}-info.p'.format(root, mode, year)], get_names = True)
+    filenames, labels = unpack_sources(['{}/{}{}-info.p'.format(root, mode, year)])
+    dataset = ImageDataset(filenames, labels, get_names = True)
     dataloader = my_dataloader(dataset)
     
     # Load a model to use for the search
     model = models.mobilenet_v2(pretrained = True)
     model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 91)
-    model.load_state_dict(torch.load('./Models/{}/model_0.pt'.format(config)))
+    model.load_state_dict(torch.load('./Models/initial-transfer/model_0.pt'))
     model.cuda()
     model.eval()
     
@@ -100,8 +99,8 @@ if __name__ == "__main__":
         print('Masking Dataset')
         # Setup a masked dataset for the images with the spurious object
         format_spurious(root, mode, year, name_spurious, use_tmp = True, coco = coco.coco)
-        dataset_spurious = ImageDataset(['{}/{}{}-tmp-info.p'.format(root, mode, year)], get_names = True)
-        #dataset_spurious = MaskedCOCOImages(images_with_spurious, coco.coco, mask_apply = True, mask_classes = [name_spurious], get_names = True)
+        filenames_spurious, labels_spurious = unpack_sources(['{}/tmp-info.p'.format(root, mode, year)])
+        dataset_spurious = ImageDataset(filenames_spurious, labels_spurious, get_names = True)
         dataloader_spurious = my_dataloader(dataset_spurious)
         
         # Get the model predictions on the images with the spurious object once that object has been removed
