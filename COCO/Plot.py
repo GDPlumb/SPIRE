@@ -53,10 +53,10 @@ if __name__ == '__main__':
         plt.scatter(p_mean, r_mean, marker = '*', s = 500, c = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(p_mean)])
         plt.legend()
     
-    tasks = ['initial-tune', 'random-tune-paint', 'Old/initial-tune']
+    tasks = ['initial-transfer']
 
     # Format the plot grid
-    num_plots = 4
+    num_plots = 5
     fig = plt.figure(figsize=(5, num_plots * 5))
     fig.subplots_adjust(hspace=0.4, wspace=0.4)
     count_plots = 1
@@ -89,30 +89,40 @@ if __name__ == '__main__':
     plt.legend()
     plt.scatter(p_mean, r_mean, marker = '*', s = 500, c = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(p_mean)])
             
-    # Class specific accuracy plots
-    datafile = '{}/train{}-with-{}-info.p'.format(root, year, spurious_class)
-    
+    # Class specific accuracy plots for spurious removed
     plt.subplot(num_plots, 1, count_plots)
     count_plots += 1
-    plt.title('Natural Images with {} for detecting {}'.format(spurious_class, main_class))
-    plt.xlabel('precision')
-    plt.ylabel('recall')
-
-    partial_plot(datafile)
-        
-    plt.subplot(num_plots, 1, count_plots)
-    count_plots += 1
-    plt.title('Natural Images without {} for detecting {}'.format(spurious_class, main_class))
-    plt.xlabel('precision')
-    plt.ylabel('recall')
-    partial_plot('{}/train{}-without-{}-info.p'.format(root, year, spurious_class))
-    
-    plt.subplot(num_plots, 1, count_plots)
-    count_plots += 1
-    plt.title('Counterfactual Images with {} removed'.format(spurious_class))
+    plt.title('Counterfactual Images with {} masked'.format(spurious_class))
     plt.xlabel('precision')
     plt.ylabel('recall')
     partial_plot('{}/val{}-{}-info.p'.format(root, year, spurious_class))
             
     plt.savefig('Plot/{}-{}.png'.format(main_class, spurious_class))
 
+    plt.subplot(num_plots, 1, count_plots)
+    count_plots += 1
+    plt.title('Counterfactual Images with {} inpainted'.format(spurious_class))
+    plt.xlabel('precision')
+    plt.ylabel('recall')
+    partial_plot('{}/val{}-{}-paint-info.p'.format(root, year, spurious_class))
+            
+    plt.savefig('Plot/{}-{}.png'.format(main_class, spurious_class))
+    
+    # Class specific accuracy plots for random removed
+    plt.subplot(num_plots, 1, count_plots)
+    count_plots += 1
+    plt.title('Counterfactual Images with random masked'.format(spurious_class))
+    plt.xlabel('precision')
+    plt.ylabel('recall')
+    partial_plot('{}/val{}-random-info.p'.format(root, year, spurious_class))
+            
+    plt.savefig('Plot/{}-{}.png'.format(main_class, spurious_class))
+
+    plt.subplot(num_plots, 1, count_plots)
+    count_plots += 1
+    plt.title('Counterfactual Images with random inpainted'.format(spurious_class))
+    plt.xlabel('precision')
+    plt.ylabel('recall')
+    partial_plot('{}/val{}-random-paint-info.p'.format(root, year, spurious_class))
+            
+    plt.savefig('Plot/{}-{}.png'.format(main_class, spurious_class))
