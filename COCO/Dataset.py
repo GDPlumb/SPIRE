@@ -38,20 +38,39 @@ def get_transform():
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
-            
-def unpack_sources(sources):
-    filenames = []
-    labels = []
+
+# If we have multiple versions of the same images, it is important to know that so they end up in the same fold of the dataset to prevent overfitting
+def merge_sources(sources):
+    file_dict = {}
     for source in sources:
         with open(source, 'rb') as f:
             data = pickle.load(f)
             
-        for filename in data[0]:
-            filenames.append(filename)
-        
-        for label in data[1]:
-            labels.append(label)
+        for i in range(len(data[0])):
+            filename = data[0][i]
+            label = data[1][i]
             
+            key = filename.split('/')[-1]
+            
+            if key not in file_dict:
+                file_dict[key] = []
+            file_dict[key].append((filename, label))
+    return file_dict
+    
+def unpack_sources(file_dict, keys = None):
+
+    if keys is None:
+        keys = [key for key in file_dict]
+    
+    filenames = []
+    labels = []
+    
+    for key in keys:
+        data = file_dict[key]
+        for pair in data:
+            filenames.append(pair[0])
+            labels.append(pair[1])
+
     return filenames, labels
 
 class ImageDataset(VisionDataset):

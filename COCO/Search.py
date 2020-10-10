@@ -7,7 +7,7 @@ import torch
 import torchvision.models as models
 
 from COCOWrapper import COCOWrapper
-from Dataset import unpack_sources, ImageDataset, my_dataloader
+from Dataset import merge_sources, unpack_sources, ImageDataset, my_dataloader
 from FormatData import format_spurious
 from ModelWrapper import ModelWrapper
 
@@ -56,7 +56,8 @@ if __name__ == "__main__":
     n = len(names)
 
     # Setup the COCO Dataset
-    filenames, labels = unpack_sources(['{}/{}{}-info.p'.format(root, mode, year)])
+    file_dict = merge_sources(['{}/{}{}-info.p'.format(root, mode, year)])
+    filenames, labels = unpack_sources(file_dict)
     dataset = ImageDataset(filenames, labels, get_names = True)
     dataloader = my_dataloader(dataset)
     
@@ -99,7 +100,8 @@ if __name__ == "__main__":
         print('Masking Dataset')
         # Setup a masked dataset for the images with the spurious object
         format_spurious(root, mode, year, name_spurious, use_tmp = True, coco = coco.coco)
-        filenames_spurious, labels_spurious = unpack_sources(['{}/tmp-info.p'.format(root, mode, year)])
+        file_dict_spurious = merge_sources(['{}/tmp-info.p'.format(root, mode, year)])
+        filenames_spurious, labels_spurious = unpack_sources(file_dict_spurious)
         dataset_spurious = ImageDataset(filenames_spurious, labels_spurious, get_names = True)
         dataloader_spurious = my_dataloader(dataset_spurious)
         

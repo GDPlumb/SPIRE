@@ -6,7 +6,7 @@ import sys
 import torch
 import torchvision.models as models
 
-from Dataset import unpack_sources, ImageDataset, my_dataloader
+from Dataset import merge_sources, unpack_sources, ImageDataset, my_dataloader
 
 from ModelWrapper import ModelWrapper
 
@@ -48,7 +48,8 @@ if __name__ == '__main__':
         for datafile in datafiles:
             print('Dataset: ', datafile)
         
-            filenames, labels = unpack_sources([datafile])
+            file_dict = merge_sources([datafile])
+            filenames, labels = unpack_sources(file_dict)
             
             dataset = ImageDataset(filenames, labels)
             dataloader = my_dataloader(dataset)

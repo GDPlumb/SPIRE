@@ -1,6 +1,7 @@
 
 import numpy as np
 from pycocotools.coco import COCO
+from sklearn.metrics import precision_score, recall_score
 
 class COCOWrapper():
 
@@ -83,3 +84,20 @@ class COCOWrapper():
         MAR /= len(cats)
         
         return MAP, MAR
+
+    def get_metrics_classless(self, y_hat, y_true):
+        cats = self.cats
+        
+        y_hat_all = []
+        y_true_all = []
+        for cat in cats:
+            id = cat['id']
+            
+            for y in y_hat[:, id]:
+                y_hat_all.append(y)
+                
+            for y in y_true[:, id]:
+                y_true_all.append(y)
+            
+        
+        return precision_score(y_true_all, y_hat_all), recall_score(y_true_all, y_hat_all)

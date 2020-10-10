@@ -27,6 +27,6 @@ conda activate edge-connect
 #python FormatData_InPainter.py $root 'val' $year 'random'
 #python FormatData_InPainter.py $root 'train' $year 'random'
 
-python FormatData_InPainter.py $root 'val' $year $spurious
+#python FormatData_InPainter.py $root 'val' $year $spurious
 
 conda deactivate

@@ -7,9 +7,9 @@ source /home/gregory/anaconda3/etc/profile.d/conda.sh
 
 conda activate countervision
 
-python Models_evaluate.py $root $year $spurious_class 'initial-transfer'
-#python Models_evaluate.py $root $year $spurious_class 'initial-tune'
-#python Models_evaluate.py $root $year $spurious_class 'random-tune'
-#python Models_evaluate.py $root $year $spurious_class 'random-tune-paint'
+for task in 'random-tune-paint'
+do
+    python Models_evaluate.py $root $year $spurious_class $task
+done
 
 conda deactivate
