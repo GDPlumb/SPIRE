@@ -30,7 +30,7 @@ class ModelWrapper():
             if get_names:
                 for name in data[2]:
                     names.append(name)
-            y_hat.append(1.0 * (self.predict(inputs) > 0.5))
+            y_hat.append(self.predict(inputs))
             y_true.append(labels.numpy())
         
         y_hat = np.concatenate(np.array(y_hat), axis = 0)
@@ -41,9 +41,11 @@ class ModelWrapper():
         else:
             return y_hat, y_true
         
-    def metrics(self, y_hat, y_true):
+    def metrics(self, y_hat, y_true, threshold = 0.5):
     
         dim = y_hat.shape[1]
+        
+        y_hat = 1.0 * (y_hat > threshold)
 
         precision = np.zeros((dim))
         for i in range(dim):

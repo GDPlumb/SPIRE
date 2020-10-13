@@ -38,7 +38,7 @@ if __name__ == '__main__':
             for task in tasks:
                 p = []
                 r = []
-                for file in glob.glob('./Models/{}/*.p'.format(task)):
+                for file in glob.glob('./Models/{}/model_?.p'.format(task)):
                     with open(file, 'rb') as f:
                         data = pickle.load(f)
                         
@@ -82,12 +82,12 @@ if __name__ == '__main__':
         for task in tasks:
             p = []
             r = []
-            for file in glob.glob('./Models/{}/*.p'.format(task)):
+            for file in glob.glob('./Models/{}/model_?.p'.format(task)):
                 with open(file, 'rb') as f:
                     data = pickle.load(f)
                     
                 data = data['{}/val{}-info.p'.format(root, year)]
-                o1, o2 = coco.get_metrics_classless(data[2], data[3])
+                o1, o2 = coco.get_metrics_classless(1.0 * (data[2] > 0.5), data[3])
                 p.append(o1)
                 r.append(o2)
                 
@@ -99,21 +99,6 @@ if __name__ == '__main__':
 #        plt.ylim(0,1)
         plt.legend()
         plt.scatter(p_mean, r_mean, marker = '*', s = 500, c = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(p_mean)])
-        
-        # Accuracy plots for spurious removed
-        plt.subplot(num_plots, 1, count_plots)
-        count_plots += 1
-        plt.title('Counterfactual Images with {} masked'.format(spurious_class))
-        plt.xlabel('MAP')
-        plt.ylabel('MAR')
-        partial_plot('{}/val{}-{}-info.p'.format(root, year, spurious_class))
-                
-        plt.subplot(num_plots, 1, count_plots)
-        count_plots += 1
-        plt.title('Counterfactual Images with {} inpainted'.format(spurious_class))
-        plt.xlabel('MAP')
-        plt.ylabel('MAR')
-        partial_plot('{}/val{}-{}-paint-info.p'.format(root, year, spurious_class))
                 
         # Accuracy plots for random removed
         plt.subplot(num_plots, 1, count_plots)
@@ -130,6 +115,20 @@ if __name__ == '__main__':
         plt.ylabel('MAR')
         partial_plot('{}/val{}-random-paint-info.p'.format(root, year, spurious_class))
     
+         # Accuracy plots for spurious removed
+        plt.subplot(num_plots, 1, count_plots)
+        count_plots += 1
+        plt.title('Counterfactual Images with {} masked'.format(spurious_class))
+        plt.xlabel('MAP')
+        plt.ylabel('MAR')
+        partial_plot('{}/val{}-{}-info.p'.format(root, year, spurious_class))
+                
+        plt.subplot(num_plots, 1, count_plots)
+        count_plots += 1
+        plt.title('Counterfactual Images with {} inpainted'.format(spurious_class))
+        plt.xlabel('MAP')
+        plt.ylabel('MAR')
+        partial_plot('{}/val{}-{}-paint-info.p'.format(root, year, spurious_class))
         
         plt.savefig('Plot/main.png')
 
@@ -143,7 +142,7 @@ if __name__ == '__main__':
             for task in tasks:
                 p = []
                 r = []
-                for file in glob.glob('./Models/{}/*.p'.format(task)):
+                for file in glob.glob('./Models/{}/model_?.p'.format(task)):
                     with open(file, 'rb') as f:
                         data = pickle.load(f)
                     
@@ -175,21 +174,6 @@ if __name__ == '__main__':
         plt.xlabel('precision')
         plt.ylabel('recall')
         partial_plot('{}/val{}-info.p'.format(root, year))
-  
-        # Class specific accuracy plots for spurious removed
-        plt.subplot(num_plots, 1, count_plots)
-        count_plots += 1
-        plt.title('Counterfactual Images with {} masked'.format(spurious_class))
-        plt.xlabel('precision')
-        plt.ylabel('recall')
-        partial_plot('{}/val{}-{}-info.p'.format(root, year, spurious_class))
-                
-        plt.subplot(num_plots, 1, count_plots)
-        count_plots += 1
-        plt.title('Counterfactual Images with {} inpainted'.format(spurious_class))
-        plt.xlabel('precision')
-        plt.ylabel('recall')
-        partial_plot('{}/val{}-{}-paint-info.p'.format(root, year, spurious_class))
                 
         # Class specific accuracy plots for random removed
         plt.subplot(num_plots, 1, count_plots)
@@ -205,5 +189,20 @@ if __name__ == '__main__':
         plt.xlabel('precision')
         plt.ylabel('recall')
         partial_plot('{}/val{}-random-paint-info.p'.format(root, year, spurious_class))
+
+        # Class specific accuracy plots for spurious removed
+        plt.subplot(num_plots, 1, count_plots)
+        count_plots += 1
+        plt.title('Counterfactual Images with {} masked'.format(spurious_class))
+        plt.xlabel('precision')
+        plt.ylabel('recall')
+        partial_plot('{}/val{}-{}-info.p'.format(root, year, spurious_class))
                 
+        plt.subplot(num_plots, 1, count_plots)
+        count_plots += 1
+        plt.title('Counterfactual Images with {} inpainted'.format(spurious_class))
+        plt.xlabel('precision')
+        plt.ylabel('recall')
+        partial_plot('{}/val{}-{}-paint-info.p'.format(root, year, spurious_class))
+        
         plt.savefig('Plot/{}-{}.png'.format(main_class, spurious_class))

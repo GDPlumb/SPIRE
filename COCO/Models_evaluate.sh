@@ -7,7 +7,7 @@ source /home/gregory/anaconda3/etc/profile.d/conda.sh
 
 conda activate countervision
 
-for task in 'random-tune-paint'
+for task in 'initial-transfer' 'initial-tune' 'random-tune' 'random-tune-paint'
 do
     python Models_evaluate.py $root $year $spurious_class $task
 done
