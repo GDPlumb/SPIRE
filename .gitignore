@@ -6,6 +6,8 @@
 SyntheticImages/Test.ipynb
 SyntheticImages/Configs.json
 
+COCO-controlled/Pairs/*
+
 COCO/Models/*
 COCO/Search/*
 COCO/Configs.json

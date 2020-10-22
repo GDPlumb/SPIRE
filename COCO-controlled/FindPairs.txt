@@ -1,0 +1,18 @@
+loading annotations into memory...
+Done (t=0.37s)
+creating index...
+index created!
+
+person car
+person bottle
+person cup
+person bowl
+person chair
+person dining table
+bottle cup
+bottle dining table
+cup bowl
+cup chair
+cup dining table
+bowl dining table
+chair dining table
