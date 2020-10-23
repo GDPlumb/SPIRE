@@ -12,17 +12,9 @@ from COCOWrapper import COCOWrapper
 from Dataset import ImageDataset, my_dataloader
 from ModelWrapper import ModelWrapper
 
-if __name__ == '__main__':
+def evaluate(main, spurious, cop_with_main, cop_without_main, trial, root = '/home/gregory/Datasets/COCO', year = '2017'):
 
-    main = sys.argv[1]
-    spurious = sys.argv[2]
-    cop_with_main = float(sys.argv[3])
-    cop_without_main = float(sys.argv[4])
-
-    root = '/home/gregory/Datasets/COCO'
-    year = '2017'
-    
-    base = './Pairs/{}-{}/{}-{}'.format(main, spurious, cop_with_main, cop_without_main)
+    base = './Pairs/{}-{}/{}-{}/trial{}'.format(main, spurious, cop_with_main, cop_without_main, trial)
     
     # Get the 'testing' images
     coco = COCOWrapper(root = root, mode = 'val', year = year)
@@ -72,3 +64,14 @@ if __name__ == '__main__':
     
     with open('{}/results.json'.format(base), 'w') as f:
         json.dump(out, f)
+
+if __name__ == '__main__':
+
+    main = sys.argv[1]
+    spurious = sys.argv[2]
+    cop_with_main = float(sys.argv[3])
+    cop_without_main = float(sys.argv[4])
+    trials = sys.argv[5].split(',')
+
+    for trial in trials:
+        evaluate(main, spurious, cop_with_main, cop_without_main, trial)

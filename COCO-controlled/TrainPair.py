@@ -1,6 +1,7 @@
 
 import numpy as np
 import os
+from pathlib import Path
 import pickle
 from sklearn.model_selection import train_test_split
 import sys
@@ -36,25 +37,16 @@ def metric_acc_agg(counts_list = None):
             total += counts[1]
             
         return [correct / total]
+        
+def train(main, spurious, cop_with_main, cop_without_main, trial, root = '/home/gregory/Datasets/COCO', year = '2017', num_sample = 1000):
 
-if __name__ == '__main__':
-    
-    main = sys.argv[1]
-    spurious = sys.argv[2]
-    cop_with_main = float(sys.argv[3])
-    cop_without_main = float(sys.argv[4])
-
-    root = '/home/gregory/Datasets/COCO'
-    year = '2017'
-    num_sample = 1000
-    
     parent = './Pairs/{}-{}'.format(main, spurious)
     
-    base = '{}/{}-{}'.format(parent, cop_with_main, cop_without_main)
+    base = '{}/{}-{}/trial{}'.format(parent, cop_with_main, cop_without_main, trial)
     os.system('rm -rf {}'.format(base))
-    os.system('mkdir {}'.format(base))
-    
-    name = '{}/model'.format(base)
+    Path(base).mkdir(parents = True, exist_ok = True)
+
+    name = '{}/model'.format(base, trial)
     
     # Load the chosen images for this pair
     with open('{}/splits.p'.format(parent), 'rb') as f:
@@ -121,3 +113,14 @@ if __name__ == '__main__':
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
                         select_cutoff = 3, decay_max = 1)
     torch.save(model.state_dict(), '{}.pt'.format(name))
+
+if __name__ == '__main__':
+    
+    main = sys.argv[1]
+    spurious = sys.argv[2]
+    cop_with_main = float(sys.argv[3])
+    cop_without_main = float(sys.argv[4])
+    trials = sys.argv[5].split(',')
+    
+    for trial in trials:
+        train(main, spurious, cop_with_main, cop_without_main, trial)
