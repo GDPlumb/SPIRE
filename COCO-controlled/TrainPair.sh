@@ -3,8 +3,8 @@ source /home/gregory/anaconda3/etc/profile.d/conda.sh
 
 conda activate countervision
 
-CUDA_VISIBLE_DEVICES=0 python TrainPair.py $1 $2 $3 $4 0,1 &
-CUDA_VISIBLE_DEVICES=1 python TrainPair.py $1 $2 $3 $4 2,3 &
+CUDA_VISIBLE_DEVICES=0 python TrainPair.py $1 $2 $3 $4 0,1,2 &
+CUDA_VISIBLE_DEVICES=1 python TrainPair.py $1 $2 $3 $4 3,4,5 &
 
 wait
 

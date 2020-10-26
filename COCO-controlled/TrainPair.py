@@ -105,13 +105,13 @@ def train(main, spurious, cop_with_main, cop_without_main, trial, root = '/home/
     for param in model.parameters():
         param.requires_grad = False
     model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
-    optim_params = model.classifier.parameters()
+    optim_params = model.parameters() #model.classifier.parameters()
     model.cuda()
 
     metric_loss = torch.nn.BCEWithLogitsLoss()
     
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
-                        select_cutoff = 3, decay_max = 1)
+                        select_cutoff = 5, decay_max = 1)
     torch.save(model.state_dict(), '{}.pt'.format(name))
 
 if __name__ == '__main__':
