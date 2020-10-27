@@ -14,3 +14,9 @@ def get_pair(coco, main, spurious):
     neither = np.setdiff1d(neither, just_spurious)
 
     return both, just_main, just_spurious, neither
+    
+def dist2key(config):
+    info = config.split('-')
+    cop_with_main = float(info[0])
+    cop_without_main = float(info[1])
+    return 1000 * cop_without_main + cop_with_main

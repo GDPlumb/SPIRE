@@ -8,12 +8,7 @@ import numpy as np
 import os
 from scipy.stats import spearmanr
 
-def config2key(config):
-    info = config.split('-')
-    cop_with_main = float(info[0])
-    cop_without_main = float(info[1])
-    return 1000 * cop_without_main + cop_with_main
-    
+from Misc import dist2key
     
 if __name__ == '__main__':
 
@@ -82,7 +77,7 @@ if __name__ == '__main__':
                     
             configs = [config for config in data]
             
-            configs = sorted(configs, key = config2key)
+            configs = sorted(configs, key = dist2key)
             
             y = []
             y_all = []
