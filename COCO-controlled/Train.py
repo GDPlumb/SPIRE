@@ -38,15 +38,15 @@ def metric_acc_agg(counts_list = None):
             
         return [correct / total]
         
-def train(main, spurious, cop_with_main, cop_without_main, trial, root = '/home/gregory/Datasets/COCO', year = '2017', num_sample = 1000):
+def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5, n = 2000):
 
     parent = './Pairs/{}-{}'.format(main, spurious)
     
-    base = '{}/{}-{}/trial{}'.format(parent, cop_with_main, cop_without_main, trial)
+    base = '{}/{}/{}/trial{}'.format(parent, p_correct, mode, trial)
     os.system('rm -rf {}'.format(base))
     Path(base).mkdir(parents = True, exist_ok = True)
 
-    name = '{}/model'.format(base, trial)
+    name = '{}/model'.format(base)
     
     # Load the chosen images for this pair
     with open('{}/splits.p'.format(parent), 'rb') as f:
@@ -56,11 +56,19 @@ def train(main, spurious, cop_with_main, cop_without_main, trial, root = '/home/
     just_spurious = splits[2]
     neither = splits[3]
     
-    # Apply the Co-Occurrence Probabilities to get the images used for each split
-    num_both = int(cop_with_main * num_sample)
-    num_just_main = num_sample - num_both
-    num_just_spurious = int(cop_without_main * num_sample)
-    num_neither = num_sample - num_just_spurious
+    # Find the number of images to get from each split
+    num_main = int(n * p_main)
+    num_spurious = int(n * p_spurious)
+
+    num_both = int(p_correct * num_spurious)
+    num_just_main = num_main - num_both
+    num_just_spurious = num_spurious - num_both
+    num_neither = n - num_both - num_just_main - num_just_spurious
+
+    if num_both < 0 or num_just_main < 0 or num_just_spurious < 0 or num_neither < 0:
+        print('Error: Bad Distribution Setup')
+        print(num_both, num_just_main, num_just_spurious, num_neither)
+        sys.exit(0)
     
     both_final = both[:num_both]
     just_main_final = just_main[:num_just_main]
@@ -72,19 +80,19 @@ def train(main, spurious, cop_with_main, cop_without_main, trial, root = '/home/
     labels = []
 
     for f in both_final:
-        files.append('{}/train{}/{}'.format(root, year, f))
+        files.append(f)
         labels.append(np.array([1], dtype = np.float32))
         
     for f in just_main_final:
-        files.append('{}/train{}/{}'.format(root, year, f))
+        files.append(f)
         labels.append(np.array([1], dtype = np.float32))
         
     for f in just_spurious_final:
-        files.append('{}/train{}/{}'.format(root, year, f))
+        files.append(f)
         labels.append(np.array([0], dtype = np.float32))
 
     for f in neither_final:
-        files.append('{}/train{}/{}'.format(root, year, f))
+        files.append(f)
         labels.append(np.array([0], dtype = np.float32))
         
     labels = np.array(labels, dtype = np.float32)
@@ -99,13 +107,15 @@ def train(main, spurious, cop_with_main, cop_without_main, trial, root = '/home/
     dataloaders['train'] = my_dataloader(datasets['train'])
     dataloaders['val'] = my_dataloader(datasets['val'])
     
-    # Train the model using Transfer learning
+    # Setup the model and optimization process
     model = models.mobilenet_v2(pretrained = True)
 
-    for param in model.parameters():
-        param.requires_grad = False
-    model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
-    optim_params = model.parameters() #model.classifier.parameters()
+    if mode in ['initial-transfer']:
+        for param in model.parameters():
+            param.requires_grad = False
+        model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
+        optim_params = model.classifier.parameters()
+
     model.cuda()
 
     metric_loss = torch.nn.BCEWithLogitsLoss()
@@ -116,11 +126,11 @@ def train(main, spurious, cop_with_main, cop_without_main, trial, root = '/home/
 
 if __name__ == '__main__':
     
-    main = sys.argv[1]
-    spurious = sys.argv[2]
-    cop_with_main = float(sys.argv[3])
-    cop_without_main = float(sys.argv[4])
+    mode = sys.argv[1]
+    main = sys.argv[2]
+    spurious = sys.argv[3]
+    p_correct = float(sys.argv[4])
     trials = sys.argv[5].split(',')
     
     for trial in trials:
-        train(main, spurious, cop_with_main, cop_without_main, trial)
+        train(mode, main, spurious, p_correct, trial)

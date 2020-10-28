@@ -6,11 +6,9 @@ from Misc import get_pair
 sys.path.insert(0, '../COCO/')
 from COCOWrapper import COCOWrapper
 
-root = '/home/gregory/Datasets/COCO'
-year = '2017'
 threshold = 100
 
-coco = COCOWrapper(root = root, mode = 'val', year = year)
+coco = COCOWrapper(mode = 'val')
 
 names = []
 for cat in coco.cats:

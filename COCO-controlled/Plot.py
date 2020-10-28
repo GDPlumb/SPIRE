@@ -7,157 +7,92 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from scipy.stats import spearmanr
-
-from Misc import dist2key
     
 if __name__ == '__main__':
 
     spearman_threshold = 0.5
 
-    back_main = os.getcwd()
-
+    back_outer = os.getcwd()
     for pair in glob.glob('./Pairs/*/'):
-    
+        os.chdir(pair)
+        back = os.getcwd()
+
         info = pair.split('/')[2].split('-')
         main = info[0]
         spurious = info[1]
-                
-        all_data = None
         
-        # Collect all of the data for each of the configs for this pair
-        os.chdir(pair)
-        for config in glob.glob('./*/'):
+        # For each training distribution
+        all_data = {}
+        for p_correct_dir in glob.glob('./0.*/'):
+            os.chdir(p_correct_dir)
+            back_inner = os.getcwd()
             
-            name = config.split('/')[1]
-            info = name.split('-')
-            cop_with_main = info[0]
-            cop_without_main = info[1]
+            p_correct = p_correct_dir.split('/')[1]
+            mode_data = {}
             
-            back = os.getcwd()
-            os.chdir(config)
-            
-            config_data = []
-            for file in glob.glob('./*/results.json'):
-                with open(file, 'r') as f:
-                    data = json.load(f)
-                config_data.append(data)
-            
-            keys = [key for key in config_data[0]]
-            
-            if all_data is None:
-                all_data = {}
-                for key in keys:
-                    all_data[key] = {}
-          
-            config_agg = {}
-            for key in keys:
-                config_agg[key] = []
-            for data in config_data:
-                for key in keys:
-                    config_agg[key].append(data[key])
-            
-            for key in keys:
-                all_data[key][name] = config_agg[key]
+            # For each training mode
+            for mode_dir in glob.glob('./*'):
+                os.chdir(mode_dir)
                 
+                mode = mode_dir.split('/')[1]
+                data = []
+            
+                # For each trial
+                for file in glob.glob('./*/results.json'):
+                    with open(file, 'r') as f:
+                        data_tmp = json.load(f)
+                    data.append(data_tmp)
+                
+                mode_data[mode] = data
+                os.chdir(back_inner)
+            
+            all_data[p_correct] = mode_data
             os.chdir(back)
+            
+        # Plot
+        p_list = [key for key in all_data]
+        p_list = sorted(p_list)
+        mode_list = [key for key in all_data[p_list[0]]]
+        metric_list = [key for key in all_data[p_list[0]][mode_list[0]][0]]
         
         # Show the effect the co-occurrences have on each metric
-        num_plots = len(all_data)
+        num_plots = len(metric_list)
         
         fig = plt.figure(figsize=(15, num_plots * 5))
         fig.subplots_adjust(hspace=0.4, wspace=0.4)
         count_plots = 1
         
-        for key in keys:
+        for metric in metric_list:
             plt.subplot(num_plots, 1, count_plots)
-            plt.title(key)
-
-        
-            data = all_data[key]
-                    
-            configs = [config for config in data]
             
-            configs = sorted(configs, key = dist2key)
+            for mode in mode_list:
             
-            y = []
-            y_all = []
-            x_all = []
-            x_index = 0
-            for config in configs:
-                y.append(np.mean(data[config]))
+                x_mean = []
+                y_mean = []
+                x_all = []
+                y_all = []
                 
-                for value in data[config]:
-                    y_all.append(value)
-                    x_all.append(x_index)
-                x_index += 1
-            
-            plt.plot(y)
-            plt.scatter(x_all, y_all)
-            plt.xticks(range(len(configs)), configs)
+                for p in p_list:
+                    values = [data[metric] for data in all_data[p][mode]]
+                    
+                    x_mean.append(p)
+                    y_mean.append(np.mean(values))
+                    
+                    for v in values:
+                        x_all.append(p)
+                        y_all.append(v)
+                    
+                    
+                plt.plot(x_mean, y_mean, label = mode)
+                plt.scatter(x_all, y_all)
+                plt.ylabel('Accuracy')
+                if metric != 'average':
+                    plt.ylim((0, 1))
+                plt.xlabel('P(Main | Spurious)')
+                plt.title('Distribution: {}'.format(metric))
+            plt.legend()
             count_plots += 1
-        plt.savefig('Co-Occurrence.png')
+        plt.savefig('Results.png')
         plt.close()
         
-        # Show how each metric compares to the others
-        
-        data_grouped = {}
-        groups = []
-        key = keys[0]
-        data = all_data[key]
-        for i in range(len(configs)):
-            config = configs[i]
-            for value in data[config]:
-                groups.append(i)
-        for key in keys:
-            tmp = []
-            data = all_data[key]
-
-            for config in configs:
-                for value in data[config]:
-                    tmp.append(value)
-                    
-            data_grouped[key] = tmp
-        
-        related_keys = []
-        for i in range(len(keys)):
-            key1 = keys[i]
-            for j in range(i + 1, len(keys)):
-                key2 = keys[j]
-                
-                if np.abs(spearmanr(data_grouped[key1], data_grouped[key2])[0]) > spearman_threshold:
-                    related_keys.append((key1, key2))
-        
-        num_plots = len(related_keys)
-        fig = plt.figure(figsize=(15, num_plots * 5))
-        fig.subplots_adjust(hspace=0.4, wspace=0.4)
-        count_plots = 1
-        
-        for pair in related_keys:
-            plt.subplot(num_plots, 1, count_plots)
-
-            key1 = pair[0]
-            key2 = pair[1]
-            
-            data1 = all_data[key1]
-            data2 = all_data[key2]
-            
-            mean1 = []
-            mean2 = []
-            for config in configs:
-                mean1.append(np.mean(data1[config]))
-                mean2.append(np.mean(data2[config]))
-                plt.scatter(data1[config], data2[config], label = config)
-            
-            plt.title('Spearmanr Correlation {}'.format(np.round(spearmanr(data_grouped[key1], data_grouped[key2])[0], 3)))
-            plt.xlabel(key1)
-            plt.ylabel(key2)
-            plt.legend()
-            
-            plt.scatter(mean1, mean2, marker = '*', s = 500, c = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(mean1)])
-
-            
-            count_plots += 1
-        
-        plt.savefig('MetricComparison.png')
-        
-        os.chdir(back_main)
+        os.chdir(back_outer)

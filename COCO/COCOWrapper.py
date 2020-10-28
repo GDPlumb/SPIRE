@@ -5,7 +5,7 @@ from sklearn.metrics import precision_score, recall_score
 
 class COCOWrapper():
 
-    def __init__(self, root = '/home/gregory/Datasets/COCO/', mode = 'val', year = '2017'):
+    def __init__(self, root = '/home/gregory/Datasets/COCO', mode = 'val', year = '2017'):
     
         coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
         cats = coco.loadCats(coco.getCatIds())
@@ -14,6 +14,9 @@ class COCOWrapper():
         self.root = root
         self.mode = mode
         self.year = year
+        
+    def get_base_dir(self):
+        return '{}/{}{}'.format(self.root, self.mode, self.year)
         
     def get_class_name(self, id):
         cats = self.cats

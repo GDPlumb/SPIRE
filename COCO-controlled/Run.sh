@@ -1,10 +1,9 @@
-main='chair'
-spurious='dining+table'
+mode=$1
+main=$2
+spurious=$3
 
-./SetupPair.sh $main $spurious
-
-for p in 0.05 0.1 0.25 0.5 0.75 0.9 0.95
+for p in 0.5 0.6 0.4 0.7 0.3 0.8 0.2 0.9 0.1
 do
-    ./TrainPair.sh $main $spurious $p 0.5
-    ./EvaluatePair.sh $main $spurious $p 0.5
+    ./Train.sh $mode $main $spurious $p
+    ./Evaluate.sh $mode $main $spurious $p
 done
