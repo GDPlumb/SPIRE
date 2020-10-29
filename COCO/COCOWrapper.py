@@ -1,13 +1,17 @@
 
+import io
 import numpy as np
 from pycocotools.coco import COCO
 from sklearn.metrics import precision_score, recall_score
+import sys
 
 class COCOWrapper():
 
     def __init__(self, root = '/home/gregory/Datasets/COCO', mode = 'val', year = '2017'):
     
+        sys.stdout = io.StringIO()
         coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
+        sys.stdout = sys.__stdout__
         cats = coco.loadCats(coco.getCatIds())
         self.coco = coco
         self.cats = cats

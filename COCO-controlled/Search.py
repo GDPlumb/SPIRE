@@ -13,7 +13,7 @@ sys.path.insert(0, '../COCO/')
 from COCOWrapper import COCOWrapper
 from Dataset import ImageDataset, my_dataloader
 from FormatData import mask_images_parallel
-    
+
 if __name__ == '__main__':
 
     # Setup COCO stuff
@@ -66,7 +66,7 @@ if __name__ == '__main__':
             os.chdir(dir_name)
 
             imgs = [file2img[f.split('/')[-1]] for f in filenames]
-            chosen_id = coco.get_class_id(class_name)
+            chosen_id = coco.get_class_id(class_name.replace('+', ' '))
             mask_images_parallel(imgs, coco.coco, base_dir, './', chosen_id = chosen_id)
 
             os.chdir(back_inner)
