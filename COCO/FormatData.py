@@ -116,7 +116,7 @@ def mask_images(images, coco, base_location, save_location, chosen_id = None, mo
 
         # Save the output
         if use_png: # Preserves exact pixel values - used to pass the masked pixels to the inpainter
-            filename = '{}.png'.format(filename.split('.')[0])
+            filename = '{}png'.format(filename[:-3])
         filenames.append(filename)
         labels.append(label)
         img.save(filename)

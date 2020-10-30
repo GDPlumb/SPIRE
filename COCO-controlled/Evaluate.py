@@ -1,23 +1,29 @@
 
 import json
 import numpy as np
+import pickle
 import sys
 import torch
 import torchvision.models as models
 
-from Misc import get_pair, process_set
+from Misc import load_data
 
 sys.path.insert(0, '../COCO/')
-from COCOWrapper import COCOWrapper
+from Dataset import ImageDataset, my_dataloader
+from ModelWrapper import ModelWrapper
 
-def evaluate(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5):
+def evaluate(mode, main, spurious, p_correct, trial):
 
-    base = './Pairs/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
+    base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
+    
+    # Load the images for this pair
+    data_dir = './Data/{}-{}/val'.format(main, spurious)
+    with open('{}/splits.p'.format(data_dir), 'rb') as f:
+        splits = pickle.load(f)
+    
+    with open('{}/images.p'.format(data_dir), 'rb') as f:
+        images = pickle.load(f)
         
-    # Get the 'testing' images
-    coco = COCOWrapper(mode = 'val')
-    both, just_main, just_spurious, neither = get_pair(coco, main, spurious)
-
     # Setup the model
     model = models.mobilenet_v2(pretrained = True)
     model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
@@ -25,19 +31,26 @@ def evaluate(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 
     
     model.load_state_dict(torch.load('{}/model.pt'.format(base)))
     model.eval()
+    
+    wrapper = ModelWrapper(model)
         
     # Run the evaluation
-    acc_both = process_set(model, both, 1)
-    acc_main = process_set(model, just_main, 1)
-    acc_spur = process_set(model, just_spurious, 0)
-    acc_neither = process_set(model, neither, 0)
-    
     out = {}
-    out['both'] = acc_both
-    out['just_main'] = acc_main
-    out['just_spurious'] = acc_spur
-    out['neither'] = acc_neither
-    out['average'] = np.mean([acc_both, acc_main, acc_spur, acc_neither])
+    avg = 0
+    for name in ['both', 'just_main', 'just_spurious', 'neither']:
+        ids = splits[name]
+        files_tmp, labels_tmp = load_data(ids, images, ['orig'])
+        
+        dataset_tmp = ImageDataset(files_tmp, labels_tmp)
+        dataloader_tmp = my_dataloader(dataset_tmp)
+        
+        y_hat, y_true = wrapper.predict_dataset(dataloader_tmp)
+        
+        v = np.mean(1 * (y_hat >= 0.5) == y_true)
+        out[name] = v
+        avg += v
+    avg /= 4
+    out['average'] = avg
     
     with open('{}/results.json'.format(base), 'w') as f:
         json.dump(out, f)

@@ -31,6 +31,7 @@ class COCOWrapper():
 
     def get_class_id(self, name):
         cats = self.cats
+        name = name.replace('+', ' ')
         for i in range(len(cats)):
             if cats[i]['name'] == name:
                 return cats[i]['id']

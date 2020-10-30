@@ -14,6 +14,8 @@ from Dataset import ImageDataset, my_dataloader
 sys.path.insert(0, '../Common/')
 from Train_info import train_model
 
+from Misc import load_data
+
 def metric_acc_batch(y_hat, y):
     y_hat = y_hat.cpu().data.numpy()
     y_hat = 1 * (y_hat >= 0)
@@ -40,21 +42,23 @@ def metric_acc_agg(counts_list = None):
         
 def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5, n = 2000):
 
-    parent = './Pairs/{}-{}'.format(main, spurious)
-    
-    base = '{}/{}/{}/trial{}'.format(parent, p_correct, mode, trial)
+    base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
     os.system('rm -rf {}'.format(base))
     Path(base).mkdir(parents = True, exist_ok = True)
 
     name = '{}/model'.format(base)
     
     # Load the chosen images for this pair
-    with open('{}/splits.p'.format(parent), 'rb') as f:
+    data_dir = './Data/{}-{}/train'.format(main, spurious)
+    with open('{}/splits.p'.format(data_dir), 'rb') as f:
         splits = pickle.load(f)
-    both = splits[0]
-    just_main = splits[1]
-    just_spurious = splits[2]
-    neither = splits[3]
+    both = splits['both']
+    just_main = splits['just_main']
+    just_spurious = splits['just_spurious']
+    neither = splits['neither']
+    
+    with open('{}/images.p'.format(data_dir), 'rb') as f:
+        images = pickle.load(f)
     
     # Find the number of images to get from each split
     num_main = int(n * p_main)
@@ -74,30 +78,27 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     just_main_final = just_main[:num_just_main]
     just_spurious_final = just_spurious[:num_just_spurious]
     neither_final = neither[:num_neither]
-
-    # Setup the train/validation split and data loaders
-    files = []
-    labels = []
-
-    for f in both_final:
-        files.append(f)
-        labels.append(np.array([1], dtype = np.float32))
+    
+    ids = []
+    for id in both_final:
+        ids.append(id)
+    for id in just_main_final:
+        ids.append(id)
+    for id in just_spurious_final:
+        ids.append(id)
+    for id in neither_final:
+        ids.append(id)
         
-    for f in just_main_final:
-        files.append(f)
-        labels.append(np.array([1], dtype = np.float32))
-        
-    for f in just_spurious_final:
-        files.append(f)
-        labels.append(np.array([0], dtype = np.float32))
+    # Train/validation split for the ids
+    # By splitting on Image ID, we ensure all counterfactuals are in the same fold
+    ids_train, ids_val = train_test_split(ids, test_size = 0.1)
 
-    for f in neither_final:
-        files.append(f)
-        labels.append(np.array([0], dtype = np.float32))
+    # Load the the data specified by mode for each Image ID
+    if mode in ['initial-transfer']:
+        names = ['orig']
         
-    labels = np.array(labels, dtype = np.float32)
-
-    files_train, files_val, labels_train, labels_val = train_test_split(files, labels, test_size = 0.1)
+    files_train, labels_train = load_data(ids_train, images, names)
+    files_val, labels_val = load_data(ids_val, images, names)
 
     datasets = {}
     datasets['train'] = ImageDataset(files_train, labels_train)

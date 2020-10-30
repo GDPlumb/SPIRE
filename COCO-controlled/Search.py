@@ -1,200 +1,77 @@
 
-import glob
-import matplotlib.pyplot as plt
-import numpy as np
-import os
+import json
+import pickle
 import sys
 import torch
 import torchvision.models as models
 
-from Misc import get_pair, process_set, id_from_path
+from Misc import id_from_path, load_data
 
 sys.path.insert(0, '../COCO/')
-from COCOWrapper import COCOWrapper
 from Dataset import ImageDataset, my_dataloader
-from FormatData import mask_images_parallel
+from ModelWrapper import ModelWrapper
 
-if __name__ == '__main__':
+def search(mode, main, spurious, p_correct, trial):
 
-    # Setup COCO stuff
-    coco = COCOWrapper(mode = 'val')
-    base_dir = coco.get_base_dir()
+    base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
     
-    imgs = coco.get_images_with_cats(None)
-    file2img = {}
-    for img in imgs:
-        file2img[img['file_name']] = img
+    # Load the images for this pair
+    data_dir = './Data/{}-{}/val'.format(main, spurious)
+    with open('{}/splits.p'.format(data_dir), 'rb') as f:
+        splits = pickle.load(f)
+    ids = splits['both']
+    
+    with open('{}/images.p'.format(data_dir), 'rb') as f:
+        images = pickle.load(f)
         
     # Setup the model
     model = models.mobilenet_v2(pretrained = True)
     model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
     model.cuda()
-
-    # Main Loop - For each pair of objects
-    back_outer = os.getcwd()
-    for pair in glob.glob('./Pairs/*/'):
-        os.chdir(pair)
-        back = os.getcwd()
+    
+    model.load_state_dict(torch.load('{}/model.pt'.format(base)))
+    model.eval()
+    
+    wrapper = ModelWrapper(model, get_names = True)
+    
+    # Get the model's predictions on relevant images
+    pred_map = {}
+    for name in ['orig', 'box-spurious', 'box-main']:
+        tmp = {}
+    
+        files_tmp, labels_tmp = load_data(ids, images, [name])
         
-        info = pair.split('/')[2].split('-')
-        main = info[0]
-        spurious = info[1]
+        dataset_tmp = ImageDataset(files_tmp, labels_tmp, get_names = True)
+        dataloader_tmp = my_dataloader(dataset_tmp)
         
-        # Get relevant data
-        both, just_main, just_spurious, neither = get_pair(coco, main, spurious)
-        both = both[:100]
-        just_main = just_main[:100]
-        just_spurious = just_spurious[:100]
-        neither = neither[:100]
+        y_hat, y_true, files = wrapper.predict_dataset(dataloader_tmp)
         
-        configs_create = [(both, spurious, 'both-spurious')]
-        configs_run = [(both, 'both-spurious')]
-
-        # Create the masked images for the search
-        os.system('rm -rf Images-Search')
-        os.system('mkdir Images-Search')
-        os.chdir('Images-Search')
-
-        for config in configs_create:
-            filenames = config[0]
-            class_name = config[1]
-            dir_name = config[2]
-
-            os.system('rm -rf {}'.format(dir_name))
-            os.system('mkdir {}'.format(dir_name))
-            back_inner = os.getcwd()
-            os.chdir(dir_name)
-
-            imgs = [file2img[f.split('/')[-1]] for f in filenames]
-            chosen_id = coco.get_class_id(class_name.replace('+', ' '))
-            mask_images_parallel(imgs, coco.coco, base_dir, './', chosen_id = chosen_id)
-
-            os.chdir(back_inner)
-        os.chdir(back)
-                
-        # Run the search
-        num_plots = 2 * len(configs_run)
-        plot_index = 1
+        for i in range(len(y_hat)):
+            tmp[id_from_path(files[i])] = (1 * (y_hat[i] >= 0.5))[0]
         
-        fig = plt.figure(figsize=(15, num_plots * 5))
-        fig.subplots_adjust(hspace=0.4, wspace=0.4)
-                            
-        for config in configs_run:
-            filenames = config[0]
-            filenames_simple = [f.split('/')[-1] for f in filenames]
-            dir_name = config[1]
-            
-            # For each training distribution
-            no2yes_all = {}
-            yes2no_all = {}
-            for p_correct_dir in glob.glob('./0.*/'):
-                os.chdir(p_correct_dir)
-                back_inner = os.getcwd()
-                
-                p_correct = p_correct_dir.split('/')[1]
-                
-                # For each training mode
-                no2yes = {}
-                yes2no = {}
-                for mode_dir in glob.glob('./*'):
-                    os.chdir(mode_dir)
-                    
-                    mode = mode_dir.split('/')[1]
-
-                    no2yes_tmp = []
-                    yes2no_tmp = []
-                    
-                    # For each trial
-                    for file in glob.glob('./*/model.pt'):
-                        model.load_state_dict(torch.load(file))
-                        model.eval()
-                        
-                        hat, true, names = process_set(model, filenames, -1, return_value = 'preds', get_names = True)
-
-                        original = {}
-                        for i in range(len(hat)):
-                            original[id_from_path(names[i])] = 1 * (hat[i] >= 0.5)
-                        hat, true, names = process_set(model, filenames_simple, -1, return_value = 'preds', get_names = True, base = '{}/Images-Search/{}'.format(back, dir_name))
-
-                        new = {}
-                        for i in range(len(hat)):
-                            new[id_from_path(names[i])] = 1 * (hat[i] >= 0.5)
-
-                        matrix = np.zeros((2, 2))
-                        for key in original:
-                            matrix[original[key], new[key]] += 1
-
-                        no2yes_tmp.append(matrix[0,1] / (matrix[0,0] + matrix[0,1]))
-                        yes2no_tmp.append(matrix[1,0] / (matrix[1,0] + matrix[1,1]))
-                        
-                    no2yes[mode] = no2yes_tmp
-                    yes2no[mode] = yes2no_tmp
-                    
-                    os.chdir(back_inner)
-                
-                no2yes_all[p_correct] = no2yes
-                yes2no_all[p_correct] = yes2no
-                
-                os.chdir(back)
-                    
-            p_list = [key for key in no2yes_all]
-            p_list = sorted(p_list)
-            mode_list = [key for key in no2yes_all[p_list[0]]]
-            
-            # Plot the results
-            plt.subplot(2,1,1)
-            plt.suptitle(dir_name)
-            
-            for mode in mode_list:
-                x_mean = []
-                y_mean = []
-                x_all = []
-                y_all = []
-                
-                for p in p_list:
-                    values = no2yes_all[p][mode]
-                    
-                    x_mean.append(p)
-                    y_mean.append(np.mean(values))
-                    
-                    for v in values:
-                        x_all.append(p)
-                        y_all.append(v)
-                        
-                plt.plot(x_mean, y_mean, label = mode)
-                plt.scatter(x_all, y_all)
-                
-                plt.ylabel('New Detection Rate')
-                plt.ylim((0, 1))
-                plt.xlabel('P(Main | Spurious)')
-            plt.legend()
-                
-            plt.subplot(2,1,2)
-            for mode in mode_list:
-                x_mean = []
-                y_mean = []
-                x_all = []
-                y_all = []
-                
-                for p in p_list:
-                    values = yes2no_all[p][mode]
-                    
-                    x_mean.append(p)
-                    y_mean.append(np.mean(values))
-                    
-                    for v in values:
-                        x_all.append(p)
-                        y_all.append(v)
-                        
-                plt.plot(x_mean, y_mean, label = mode)
-                plt.scatter(x_all, y_all)
-                
-            plt.ylabel('New Failure Rate')
-            plt.ylim((0, 1))
-            plt.xlabel('P(Main | Spurious)')
-            plt.legend()
-
-            plt.savefig('Search.png')
-            plt.close()
+        pred_map[name] = tmp
         
-        os.chdir(back_outer)
+    # Aggregate the results
+    out = {}
+    
+    for name in ['box-spurious', 'box-main']:
+        matrix = [[0,0],[0,0]]
+        for id in ids:
+            p_orig = pred_map['orig'][id]
+            p_new = pred_map[name][id]
+            matrix[p_orig][p_new] += 1
+        out[name] = matrix
+        
+    with open('{}/search.json'.format(base), 'w') as f:
+        json.dump(out, f)
+
+if __name__ == '__main__':
+
+    mode = sys.argv[1]
+    main = sys.argv[2]
+    spurious = sys.argv[3]
+    p_correct = float(sys.argv[4])
+    trials = sys.argv[5].split(',')
+
+    for trial in trials:
+        search(mode, main, spurious, p_correct, trial)

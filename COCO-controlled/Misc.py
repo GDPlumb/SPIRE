@@ -19,8 +19,8 @@ def get_pair(coco, main, spurious):
     just_spurious = np.setdiff1d(ids_spurious, ids_main)
     
     neither = [img['file_name'] for img in coco.get_images_with_cats(None)]
-    neither = np.setdiff1d(neither, just_main)
-    neither = np.setdiff1d(neither, just_spurious)
+    neither = np.setdiff1d(neither, ids_main)
+    neither = np.setdiff1d(neither, ids_spurious)
     
     base_dir = coco.get_base_dir()
     both = ['{}/{}'.format(base_dir, f) for f in both]
@@ -29,37 +29,20 @@ def get_pair(coco, main, spurious):
     neither = ['{}/{}'.format(base_dir, f) for f in neither]
 
     return both, just_main, just_spurious, neither
-    
-def process_set(model, files, label, return_value = 'acc', get_names = False, base = None):
-    files_tmp = []
-    labels_tmp = []
-    for f in files:
-        if base is None:
-            files_tmp.append(f)
-        else:
-            files_tmp.append('{}/{}'.format(base, f))
-        labels_tmp.append(np.array([label], dtype = np.float32))
-
-    labels_tmp = np.array(labels_tmp, dtype = np.float32)
-
-    dataset_tmp = ImageDataset(files_tmp, labels_tmp, get_names = get_names)
-
-    dataloader_tmp = my_dataloader(dataset_tmp)
-    
-    model.eval()
-    wrapper = ModelWrapper(model, get_names = get_names)
-    if get_names:
-        y_hat, y_true, names = wrapper.predict_dataset(dataloader_tmp)
-    else:
-        y_hat, y_true = wrapper.predict_dataset(dataloader_tmp)
-
-    if return_value == 'acc':
-        return np.mean(1 * (y_hat >= 0.5) == y_true)
-    elif return_value == 'preds':
-        if get_names:
-            return y_hat, y_true, names
-        else:
-            return y_hat, y_true
             
 def id_from_path(path):
     return path.split('/')[-1].split('.')[0].lstrip('0')
+    
+def load_data(ids, images, names):
+    files = []
+    labels = []
+    for id in ids:
+        for name in images[id]:
+            if name in names:
+                files.append(images[id][name][0])
+                labels.append(images[id][name][1])
+    
+    labels = np.array(labels, dtype = np.float32)
+    labels = labels.reshape((labels.shape[0], 1))
+    
+    return files, labels
