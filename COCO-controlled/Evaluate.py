@@ -6,6 +6,7 @@ import sys
 import torch
 import torchvision.models as models
 
+from Config import get_data_dir
 from Misc import load_data
 
 sys.path.insert(0, '../COCO/')
@@ -17,7 +18,7 @@ def evaluate(mode, main, spurious, p_correct, trial):
     base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
     
     # Load the images for this pair
-    data_dir = './Data/{}-{}/val'.format(main, spurious)
+    data_dir = '{}/{}-{}/val'.format(get_data_dir(), main, spurious)
     with open('{}/splits.p'.format(data_dir), 'rb') as f:
         splits = pickle.load(f)
     

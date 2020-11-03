@@ -8,13 +8,14 @@ import sys
 import torch
 import torchvision.models as models
 
+from Config import get_data_dir
+from Misc import load_data
+
 sys.path.insert(0, '../COCO/')
 from Dataset import ImageDataset, my_dataloader
 
 sys.path.insert(0, '../Common/')
 from Train_info import train_model
-
-from Misc import load_data
 
 def metric_acc_batch(y_hat, y):
     y_hat = y_hat.cpu().data.numpy()
@@ -49,7 +50,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     name = '{}/model'.format(base)
     
     # Load the chosen images for this pair
-    data_dir = './Data/{}-{}/train'.format(main, spurious)
+    data_dir = '{}/{}-{}/train'.format(get_data_dir(), main, spurious)
     with open('{}/splits.p'.format(data_dir), 'rb') as f:
         splits = pickle.load(f)
     both = splits['both']
@@ -94,8 +95,14 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     ids_train, ids_val = train_test_split(ids, test_size = 0.1)
 
     # Load the the data specified by mode for each Image ID
-    if mode in ['initial-transfer']:
+    if mode in ['initial-transfer', 'initial-tune']:
         names = ['orig']
+    elif mode in ['both-transfer', 'both-tune']:
+        names = ['orig', 'box-main', 'box-spurious']
+    elif mode in ['spurious-transfer', 'spurious-tune']:
+    	names = ['orig', 'box-spurious']
+    elif mode in ['spurious-paint-transfer', 'spurious-paint-tune']:
+    	names = ['orig', 'pixel-spurious-paint']
         
     files_train, labels_train = load_data(ids_train, images, names)
     files_val, labels_val = load_data(ids_val, images, names)
@@ -111,18 +118,24 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     # Setup the model and optimization process
     model = models.mobilenet_v2(pretrained = True)
 
-    if mode in ['initial-transfer']:
+    if 'transfer' in mode.split('-'):
         for param in model.parameters():
             param.requires_grad = False
         model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
         optim_params = model.classifier.parameters()
+        lr = 0.001
+    elif 'tune' in mode.split('-'):
+        model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
+        model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
+        optim_params = model.parameters()
+        lr = 0.0001
 
     model.cuda()
 
     metric_loss = torch.nn.BCEWithLogitsLoss()
     
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
-                        select_cutoff = 5, decay_max = 1)
+                        lr_init = lr, select_cutoff = 5, decay_max = 1)
     torch.save(model.state_dict(), '{}.pt'.format(name))
 
 if __name__ == '__main__':

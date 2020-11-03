@@ -5,6 +5,8 @@ import pickle
 import skimage
 import sys
 
+from Config import get_data_dir
+
 ec_source = '/home/gregory/Desktop/edge-connect'
 sys.path.insert(0, ec_source)
 import src.edge_connect
@@ -19,7 +21,7 @@ if __name__ == '__main__':
     
     ip = src.edge_connect.InPainter(model_path = '{}/checkpoints/places2/'.format(ec_source))
 
-    pair_dir = '{}/Data/{}-{}'.format(os.getcwd(), main, spurious)
+    pair_dir = '{}/{}-{}'.format(get_data_dir(), main, spurious)
     for mode in ['val', 'train']:
         mode_dir = '{}/{}'.format(pair_dir, mode)
         

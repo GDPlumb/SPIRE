@@ -5,6 +5,7 @@ import pickle
 import random
 import sys
 
+from Config import get_data_dir
 from Misc import get_pair, id_from_path
 
 sys.path.insert(0, '../COCO/')
@@ -17,7 +18,7 @@ if __name__ == '__main__':
     spurious = sys.argv[2]
     
     # Setup the main directory for this pair
-    pair_dir = '{}/Data/{}-{}'.format(os.getcwd(), main, spurious)
+    pair_dir = '{}/{}-{}'.format(get_data_dir(), main, spurious)
     os.system('rm -rf {}'.format(pair_dir))
     os.system('mkdir {}'.format(pair_dir))
     
