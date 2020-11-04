@@ -1,5 +1,6 @@
 
 import json
+import numpy as np
 import pickle
 import sys
 import torch
@@ -20,7 +21,6 @@ def search(mode, main, spurious, p_correct, trial):
     data_dir = '{}/{}-{}/val'.format(get_data_dir(), main, spurious)
     with open('{}/splits.p'.format(data_dir), 'rb') as f:
         splits = pickle.load(f)
-    ids = splits['both']
     
     with open('{}/images.p'.format(data_dir), 'rb') as f:
         images = pickle.load(f)
@@ -35,36 +35,47 @@ def search(mode, main, spurious, p_correct, trial):
     
     wrapper = ModelWrapper(model, get_names = True)
     
-    # Get the model's predictions on relevant images
-    pred_map = {}
-    for name in ['orig', 'box-spurious', 'pixel-spurious-paint', 'box-main', 'pixel-main-paint']:
-        tmp = {}
+    # Get the model's predictions on each images split
+    metrics = {}
     
+    def get_map(wrapper, images, ids, name):
         files_tmp, labels_tmp = load_data(ids, images, [name])
-        
         dataset_tmp = ImageDataset(files_tmp, labels_tmp, get_names = True)
         dataloader_tmp = my_dataloader(dataset_tmp)
-        
-        y_hat, y_true, files = wrapper.predict_dataset(dataloader_tmp)
-        
+        y_hat, y_true, names = wrapper.predict_dataset(dataloader_tmp)
+        pred_map = {}
         for i in range(len(y_hat)):
-            tmp[id_from_path(files[i])] = (1 * (y_hat[i] >= 0.5))[0]
+            pred_map[id_from_path(names[i])] = (1 * (y_hat[i] >= 0.5))[0]
+        return pred_map
         
-        pred_map[name] = tmp
+    def get_diff(map1, map2):
+        n = len(map1)
+        changed = 0
+        for key in map1:
+            if map1[key] != map2[key]:
+                changed += 1
+        return changed / n
         
-    # Aggregate the results
-    out = {}
-    
+    ids = splits['both']
+    map_orig = get_map(wrapper, images, ids, 'orig')
     for name in ['box-spurious', 'pixel-spurious-paint', 'box-main', 'pixel-main-paint']:
-        matrix = [[0,0],[0,0]]
-        for id in ids:
-            p_orig = pred_map['orig'][id]
-            p_new = pred_map[name][id]
-            matrix[p_orig][p_new] += 1
-        out[name] = matrix
+        map_name = get_map(wrapper, images, ids, name)
+        metrics['{} and {}'.format('both', name)] = get_diff(map_orig, map_name)
+    
+    ids = splits['just_main']
+    map_orig = get_map(wrapper, images, ids, 'orig')
+    for name in ['box-main', 'pixel-main-paint']:
+        map_name = get_map(wrapper, images, ids, name)
+        metrics['{} and {}'.format('just_main', name)] = get_diff(map_orig, map_name)
+        
+    ids = splits['just_spurious']
+    map_orig = get_map(wrapper, images, ids, 'orig')
+    for name in ['box-spurious', 'pixel-spurious-paint']:
+        map_name = get_map(wrapper, images, ids, name)
+        metrics['{} and {}'.format('just_spurious', name)] = get_diff(map_orig, map_name)
         
     with open('{}/search.json'.format(base), 'w') as f:
-        json.dump(out, f)
+        json.dump(metrics, f)
 
 if __name__ == '__main__':
 

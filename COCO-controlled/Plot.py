@@ -84,7 +84,7 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
                 if set_ylim and metric != 'average':
                     plt.ylim((0, 1))
                 plt.xlabel('P(Main | Spurious)')
-                plt.title('Distribution: {}'.format(metric))
+                plt.title('Image Split: {}'.format(metric))
         plt.legend()
         count_plots += 1
     plt.savefig('{}/Results.png'.format(save_dir))
@@ -115,7 +115,7 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
     mode_list = sorted(mode_list)
     metric_list = [key for key in all_data[p_list[0]][mode_list[0]][0]]
     
-    num_plots = 2 * len(metric_list)
+    num_plots = len(metric_list)
     
     fig = plt.figure(figsize=(15, num_plots * 5))
     fig.subplots_adjust(hspace=0.4, wspace=0.4)
@@ -126,72 +126,36 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
         for mode in mode_list:
             if (modes_specified is None or mode in modes_specified) and mode not in modes_ignored:
         
-                x1_mean = []
-                y1_mean = []
-                x1_all = []
-                y1_all = []
-                
-                x2_mean = []
-                y2_mean = []
-                x2_all = []
-                y2_all = []
+                x_mean = []
+                y_mean = []
+                x_all = []
+                y_all = []
                 
                 for p in p_list:
                     try:
                         values = [data[metric] for data in all_data[p][mode]]
-                    
-                        def no2yes(values):
-                            out = []
-                            for v in values:
-                                out.append(v[0][1] / (v[0][0] + v[0][1]))
-                            return out
+                        
+                        x_mean.append(p)
+                        y_mean.append(np.mean(values))
+                        
+                        for v in values:
+                            x_all.append(p)
+                            y_all.append(v)
                             
-                        def yes2no(values):
-                            out = []
-                            for v in values:
-                                out.append(v[1][0] / (v[1][0] + v[1][1]))
-                            return out
-                        
-                        v1 = no2yes(values)
-                        v2 = yes2no(values)
-                        
-                        x1_mean.append(p)
-                        y1_mean.append(np.mean(v1))
-                        
-                        for v in v1:
-                            x1_all.append(p)
-                            y1_all.append(v)
-                            
-                        x2_mean.append(p)
-                        y2_mean.append(np.mean(v2))
-                        
-                        for v in v2:
-                            x2_all.append(p)
-                            y2_all.append(v)
                     except KeyError:
                         pass
               
                 plt.subplot(num_plots, 1, count_plots)
-                plt.plot(x1_mean, y1_mean, label = mode, alpha = 0.5)
-                plt.scatter(x1_all, y1_all, alpha = 0.25)
-                plt.ylabel('New Detection Rate')
+                plt.plot(x_mean, y_mean, label = mode, alpha = 0.5)
+                plt.scatter(x_all, y_all, alpha = 0.25)
+                plt.ylabel('Probability Prediction Changes')
                 if set_ylim:
-                    plt.ylim((0, 1))
+                    plt.ylim((-1, 1))
                 plt.xlabel('P(Main | Spurious)')
-                plt.title('Modification: {}'.format(metric))
-                plt.legend()
-                
-                plt.subplot(num_plots, 1, count_plots + 1)
-                plt.plot(x2_mean, y2_mean, label = mode, alpha = 0.5)
-                plt.scatter(x2_all, y2_all, alpha = 0.25)
-                plt.ylabel('New Failure Rate')
-                if set_ylim:
-                    plt.ylim((0, 1))
-                plt.xlabel('P(Main | Spurious)')
-                plt.title('Modification: {}'.format(metric))
+                plt.title('Image Split and Counterfactual: {}'.format(metric))
                 plt.legend()
             
-        count_plots += 2
+        count_plots += 1
     plt.savefig('{}/Search.png'.format(save_dir))
     plt.close()    
     

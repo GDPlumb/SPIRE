@@ -5,7 +5,7 @@ EVAL=false
 SEARCH=true
 
 #
-for mode in 'both-transfer'
+for mode in 'initial-transfer' 'spurious-transfer' 'spurious-paint-transfer' 'both-transfer' 'initial-tune' 'spurious-tune' 'spurious-paint-tune'
 do
     echo ''
     echo ''
