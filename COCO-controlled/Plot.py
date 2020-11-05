@@ -24,29 +24,34 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
     base = '{}/Models/{}-{}'.format(os.getcwd(), main, spurious)
     
     # Get Evaluate Results
+    p_list = []
+    mode_list = []
+    metric_list = []
     all_data = {}
     for p_dir in glob.glob('{}/*'.format(base)):
         p_correct = p_dir.split('/')[-1]
+        p_list.append(p_correct)
     
         mode_data = {}
         for mode_dir in glob.glob('{}/*'.format(p_dir)):
             mode = mode_dir.split('/')[-1]
+            mode_list.append(mode)
             
             data = []
             for file in glob.glob('{}/*/results.json'.format(mode_dir)):
                 with open(file, 'r') as f:
                     data_tmp = json.load(f)
                 data.append(data_tmp)
+                for key in data_tmp:
+                    metric_list.append(key)
             
             mode_data[mode] = data
         all_data[p_correct] = mode_data
         
     # Plot Evaluate Results
-    p_list = [key for key in all_data]
-    p_list = sorted(p_list)
-    mode_list = [key for key in all_data[p_list[0]]]
-    mode_list = sorted(mode_list)
-    metric_list = [key for key in all_data[p_list[0]][mode_list[0]][0]]
+    p_list = sorted(list(set(p_list)))
+    mode_list = sorted(list(set(mode_list)))
+    metric_list = sorted(list(set(metric_list)))
     
     num_plots = len(metric_list)
     
@@ -91,29 +96,34 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
     plt.close()
     
     # Get Search Results
+    p_list = []
+    mode_list = []
+    metric_list = []
     all_data = {}
     for p_dir in glob.glob('{}/*'.format(base)):
         p_correct = p_dir.split('/')[-1]
-    
+        p_list.append(p_correct)
+
         mode_data = {}
         for mode_dir in glob.glob('{}/*'.format(p_dir)):
             mode = mode_dir.split('/')[-1]
-            
+            mode_list.append(mode)
+
             data = []
             for file in glob.glob('{}/*/search.json'.format(mode_dir)):
                 with open(file, 'r') as f:
                     data_tmp = json.load(f)
                 data.append(data_tmp)
-            
+                for key in data_tmp:
+                    metric_list.append(key)
+                    
             mode_data[mode] = data
         all_data[p_correct] = mode_data
     
     # Plot Search Results
-    p_list = [key for key in all_data]
-    p_list = sorted(p_list)
-    mode_list = [key for key in all_data[p_list[0]]]
-    mode_list = sorted(mode_list)
-    metric_list = [key for key in all_data[p_list[0]][mode_list[0]][0]]
+    p_list = sorted(list(set(p_list)))
+    mode_list = sorted(list(set(mode_list)))
+    metric_list = sorted(list(set(metric_list)))
     
     num_plots = len(metric_list)
     
