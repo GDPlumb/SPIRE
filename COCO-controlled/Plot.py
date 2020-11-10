@@ -74,15 +74,15 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
                     try:
                         values = [data[metric] for data in all_data[p][mode]]
                         
-                        x_mean.append(p)
+                        x_mean.append(float(p))
                         y_mean.append(np.mean(values))
                         
                         for v in values:
-                            x_all.append(p)
+                            x_all.append(float(p))
                             y_all.append(v)
                     except KeyError:
                         pass
-                    
+                        
                 plt.plot(x_mean, y_mean, label = mode, alpha = 0.5)
                 plt.scatter(x_all, y_all, alpha = 0.25)
                 plt.ylabel('Accuracy')
@@ -125,49 +125,71 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
     mode_list = sorted(list(set(mode_list)))
     metric_list = sorted(list(set(metric_list)))
     
-    num_plots = len(metric_list)
-    
-    fig = plt.figure(figsize=(15, num_plots * 5))
-    fig.subplots_adjust(hspace=0.4, wspace=0.4)
-    count_plots = 1
-    
-    for metric in metric_list:
-        
-        for mode in mode_list:
-            if (modes_specified is None or mode in modes_specified) and mode not in modes_ignored:
-        
-                x_mean = []
-                y_mean = []
-                x_all = []
-                y_all = []
-                
-                for p in p_list:
-                    try:
-                        values = [data[metric] for data in all_data[p][mode]]
-                        
-                        x_mean.append(p)
-                        y_mean.append(np.mean(values))
-                        
-                        for v in values:
-                            x_all.append(p)
-                            y_all.append(v)
-                            
-                    except KeyError:
-                        pass
-              
-                plt.subplot(num_plots, 1, count_plots)
-                plt.plot(x_mean, y_mean, label = mode, alpha = 0.5)
-                plt.scatter(x_all, y_all, alpha = 0.25)
-                plt.ylabel('Probability Prediction Changes')
-                if set_ylim:
-                    plt.ylim((-1, 1))
-                plt.xlabel('P(Main | Spurious)')
-                plt.title('Image Split and Counterfactual: {}'.format(metric))
-                plt.legend()
+    def get_split(metric):
+        chunks = metric.split(' and ')[1].split('-')
+        if 'inverse' in chunks:
+            return 'inverse'
+        elif 'main' in chunks:
+            return 'main'
+        elif 'spurious' in chunks:
+            return 'spurious'
+        else:
+            print(metric)
             
-        count_plots += 1
-    plt.savefig('{}/Search.png'.format(save_dir))
-    plt.close()    
+    metric_splits = {}
+    metric_splits['inverse'] = []
+    metric_splits['main'] = []
+    metric_splits['spurious'] = []
+    for metric in metric_list:
+        metric_splits[get_split(metric)].append(metric)
+        
+    for split in ['spurious', 'main', 'inverse']:
+    
+        metric_list_split = metric_splits[split]
+    
+        num_plots = len(metric_list_split)
+    
+        fig = plt.figure(figsize=(15, num_plots * 5))
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+        count_plots = 1
+    
+        for metric in metric_list_split:
+            
+            for mode in mode_list:
+                if (modes_specified is None or mode in modes_specified) and mode not in modes_ignored:
+            
+                    x_mean = []
+                    y_mean = []
+                    x_all = []
+                    y_all = []
+                    
+                    for p in p_list:
+                        try:
+                            values = [data[metric] for data in all_data[p][mode]]
+                            
+                            x_mean.append(float(p))
+                            y_mean.append(np.mean(values))
+                            
+                            for v in values:
+                                x_all.append(float(p))
+                                y_all.append(v)
+                                
+                        except KeyError:
+                            pass
+                  
+                    plt.subplot(num_plots, 1, count_plots)
+                    plt.plot(x_mean, y_mean, label = mode, alpha = 0.5)
+                    plt.scatter(x_all, y_all, alpha = 0.25)
+                    plt.ylabel('Probability Prediction Changes')
+                    if set_ylim:
+                        plt.ylim((0, 1))
+                    plt.xlabel('P(Main | Spurious)')
+                    plt.title('Image Split and Counterfactual: {}'.format(metric))
+                    plt.legend()
+                
+            count_plots += 1
+        plt.savefig('{}/Search-{}.png'.format(save_dir, split))
+        plt.close()
     
 if __name__ == '__main__':
 
@@ -177,8 +199,8 @@ if __name__ == '__main__':
     
     try:
         if sys.argv[3] == 'custom':
+            plot(main, spurious, subdir = 'comp-aug', modes_specified = ['initial-transfer', 'main-transfer', 'spurious-transfer'])
             plot(main, spurious, subdir = 'comp-train', modes_specified = ['initial-transfer', 'initial-tune'])
-            plot(main, spurious, subdir = 'comp-aug', modes_specified = ['spurious-transfer', 'both-transfer'])
             plot(main, spurious, subdir = 'comp-fill', modes_specified = ['spurious-transfer', 'spurious-paint-transfer', 'spurious-tune', 'spurious-paint-tune'])
             plot(main, spurious, subdir = 'main', modes_specified = ['initial-tune', 'spurious-transfer', 'spurious-tune'])
     except IndexError:
