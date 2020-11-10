@@ -46,3 +46,25 @@ def load_data(ids, images, names):
     labels = labels.reshape((labels.shape[0], 1))
     
     return files, labels
+    
+def load_data_splits(ids, images, splits, names_split, defaults = None):
+    files = []
+    labels = []
+    for id in ids:
+        included = False
+        for key in splits:
+            if id in splits[key]:
+                for name in images[id]:
+                    if name in names_split[key]:
+                        files.append(images[id][name][0])
+                        labels.append(images[id][name][1])
+                        included = True
+        if not included and defaults is not None:
+            files.append(defaults[0])
+            labels.append(defaults[1])
+                        
+    labels = np.array(labels, dtype = np.float32)
+    labels = labels.reshape((labels.shape[0], 1))
+    
+    return files, labels
+
