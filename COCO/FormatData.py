@@ -71,9 +71,12 @@ def get_mask(anns, mask_classes, coco, mode = 'box', unmask = True):
                 
         return mask
         
-def apply_mask(img, mask, value = 'default'):
+def apply_mask(img, mask, value = 'default', invert = False):
     # Fill the masked values
-    mask = (np.squeeze(mask) == 1)
+    if invert:
+        mask = (np.squeeze(mask) != 1)
+    else:
+        mask = (np.squeeze(mask) == 1)
     img_np = np.array(img)
     if value == 'default':
         img_np[mask] = [124, 116, 104]
@@ -84,7 +87,7 @@ def apply_mask(img, mask, value = 'default'):
     img = Image.fromarray(img_np)
     return img
 
-def mask_images(images, coco, base_location, save_location, chosen_id = None, mode = 'box', unmask = True, use_png = False):
+def mask_images(images, coco, base_location, save_location, chosen_id = None, mode = 'box', invert = False, unmask = True, use_png = False):
     filenames = []
     labels = []
     for img_obj in images:
@@ -111,8 +114,10 @@ def mask_images(images, coco, base_location, save_location, chosen_id = None, mo
             label[tmp_id] = 0.0
             
             # Mask the image
-            mask = get_mask(anns, [tmp_id], coco, mode = mode, unmask = unmask)
-            img = apply_mask(img, mask)
+            if not isinstance(tmp_id, list):
+                tmp_id = [tmp_id]
+            mask = get_mask(anns, tmp_id, coco, mode = mode, unmask = unmask)
+            img = apply_mask(img, mask, invert = invert)
 
         # Save the output
         if use_png: # Preserves exact pixel values - used to pass the masked pixels to the inpainter
@@ -123,7 +128,7 @@ def mask_images(images, coco, base_location, save_location, chosen_id = None, mo
         
     return filenames, labels
     
-def mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = 'box', unmask = True, use_png = False, workers = 24):
+def mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = 'box', invert = False, unmask = True, use_png = False, workers = 24):
 
     # Split the images to pass them to the workers
     images_split = []
@@ -136,8 +141,8 @@ def mask_images_parallel(images, coco, base_location, save_location, chosen_id =
         next_worker = (next_worker + 1) % workers
         
     # Define the worker function
-    def mask_images_worker(id, images_split = images_split, coco = coco, base_location = base_location, save_location = save_location, chosen_id = chosen_id, mode = mode, unmask = unmask, use_png = use_png):
-        names, labels = mask_images(images_split[id], coco, base_location, save_location, chosen_id = chosen_id, mode = mode, unmask = unmask, use_png = use_png)
+    def mask_images_worker(id, images_split = images_split, coco = coco, base_location = base_location, save_location = save_location, chosen_id = chosen_id, mode = mode, invert = invert, unmask = unmask, use_png = use_png):
+        names, labels = mask_images(images_split[id], coco, base_location, save_location, chosen_id = chosen_id, mode = mode, invert = invert, unmask = unmask, use_png = use_png)
         with open('tmp-{}.p'.format(id), 'wb') as f:
             pickle.dump([names, labels], f)
         

@@ -58,19 +58,19 @@ def search(mode, main, spurious, p_correct, trial):
         
     ids = splits['both']
     map_orig = get_map(wrapper, images, ids, 'orig')
-    for name in ['box-spurious', 'pixel-spurious-paint', 'box-main', 'pixel-main-paint']:
+    for name in ['spurious-box', 'spurious-pixel-paint', 'main-box', 'main-pixel-paint', 'both-inverse', 'main-inverse', 'spurious-inverse']:
         map_name = get_map(wrapper, images, ids, name)
         metrics['{} and {}'.format('both', name)] = get_diff(map_orig, map_name)
     
     ids = splits['just_main']
     map_orig = get_map(wrapper, images, ids, 'orig')
-    for name in ['box-main', 'pixel-main-paint']:
+    for name in ['main-box', 'main-pixel-paint', 'main-inverse']:
         map_name = get_map(wrapper, images, ids, name)
         metrics['{} and {}'.format('just_main', name)] = get_diff(map_orig, map_name)
         
     ids = splits['just_spurious']
     map_orig = get_map(wrapper, images, ids, 'orig')
-    for name in ['box-spurious', 'pixel-spurious-paint']:
+    for name in ['spurious-box', 'spurious-pixel-paint', 'spurious-inverse']:
         map_name = get_map(wrapper, images, ids, name)
         metrics['{} and {}'.format('just_spurious', name)] = get_diff(map_orig, map_name)
         

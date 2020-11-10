@@ -30,7 +30,7 @@ if __name__ == '__main__':
         ids = [id for id in images]
         
         
-        for mask_mode in ['box-main', 'box-spurious', 'pixel-main', 'pixel-spurious']:
+        for mask_mode in ['main-pixel', 'spurious-pixel']:
             for id in ids:
                 if mask_mode in images[id]:
                     file = images[id][mask_mode][0]
