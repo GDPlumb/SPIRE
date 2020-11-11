@@ -4,14 +4,7 @@ TRAIN=false
 EVAL=false
 SEARCH=true
 
-#
-for mode in 'initial-transfer' 'spurious-transfer' 'spurious-paint-transfer' 'both-transfer' 'initial-tune' 'spurious-tune' 'spurious-paint-tune'
-do
-    echo ''
-    echo ''
-    echo ''
-    echo $mode
-    for i in 'bottle person'
+for i in  'bottle person' 'car person' 'chair person'
 #            'bowl person'\
 #            'car person' \
 #            'chair person' \
@@ -24,20 +17,27 @@ do
 #            'bowl dining+table' \
 #            'chair dining+table' \
 #            'cup dining+table'
-    do
-        set -- $i
-        main=$1
-        spurious=$2
+do
+    set -- $i
+    main=$1
+    spurious=$2
         
+    echo ''
+    echo ''
+    echo ''
+    echo $main $spurious
+    
+    for mode in 'initial-transfer' 'initial-tune' 'both-tune' 'main-tune' 'spurious-tune' 'both-paint-tune' 'main-paint-tune' 'spurious-paint-tune'
+    do
         echo ''
-        echo $main $spurious
+        echo $mode
         
         if $SETUP ; then
             echo 'Setting Up'
             ./SetupPair.sh $main $spurious
         fi
             
-        for p in 0.5 0.6 0.4 0.7 0.3 0.8 0.2 0.9 0.1
+        for p in 0.8 0.9 0.95 0.975
         do
             echo $p
             if $TRAIN ; then

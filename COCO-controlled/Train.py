@@ -9,7 +9,7 @@ import torch
 import torchvision.models as models
 
 from Config import get_data_dir
-from Misc import load_data
+from Misc import load_data, load_data_splits
 
 sys.path.insert(0, '../COCO/')
 from Dataset import ImageDataset, my_dataloader
@@ -43,6 +43,7 @@ def metric_acc_agg(counts_list = None):
         
 def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5, n = 2000):
 
+    defaults = ('/home/gregory/Datasets/COCO-controlled/blank.png', 0)
     base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
     os.system('rm -rf {}'.format(base))
     Path(base).mkdir(parents = True, exist_ok = True)
@@ -97,15 +98,31 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     # Load the the data specified by mode for each Image ID
     if mode in ['initial-transfer', 'initial-tune']:
         names = ['orig']
-    elif mode in ['both-transfer', 'both-tune']:
-        names = ['orig', 'box-main', 'box-spurious']
-    elif mode in ['spurious-transfer', 'spurious-tune']:
-    	names = ['orig', 'box-spurious']
-    elif mode in ['spurious-paint-transfer', 'spurious-paint-tune']:
-    	names = ['orig', 'pixel-spurious-paint']
+    elif mode in ['both-tune']:
+        names = ['orig', 'main-box', 'spurious-box']
+    elif mode in ['main-tune']:
+        names = ['orig', 'main-box']
+    elif mode in ['spurious-tune']:
+    	names = ['orig', 'spurious-box']
+    elif mode in ['both-paint-tune']:
+        names = ['orig', 'main-pixel-paint', 'spurious-pixel-paint']
+    elif mode in ['main-paint-tune']:
+    	names = ['orig', 'main-pixel-paint']
+    elif mode in ['spurious-paint-tune']:
+    	names = ['orig', 'spurious-pixel-paint']
+    else:
+        print('Error: Unrecognized mode')
+        sys.exit(0)
         
-    files_train, labels_train = load_data(ids_train, images, names)
-    files_val, labels_val = load_data(ids_val, images, names)
+    if  isinstance(names, dict):
+        files_train, labels_train = load_data_splits(ids_train, images, splits, names, defaults = defaults)
+        files_val, labels_val = load_data_splits(ids_val, images, splits, names, defaults = defaults)
+    elif isinstance(names, list):
+        files_train, labels_train = load_data(ids_train, images, names)
+        files_val, labels_val = load_data(ids_val, images, names)
+    else:
+        print('Error:  Unrecognized type for names')
+        sys.exit(0)
 
     datasets = {}
     datasets['train'] = ImageDataset(files_train, labels_train)
@@ -129,6 +146,9 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
         optim_params = model.parameters()
         lr = 0.0001
+    else:
+        print('Error:  could not determine what model parameters are trainable')
+        sys.exit(0)
 
     model.cuda()
 
