@@ -17,6 +17,8 @@ if __name__ == '__main__':
     main = sys.argv[1]
     spurious = sys.argv[2]
     
+    random.seed(0)
+    
     # Setup the main directory for this pair
     pair_dir = '{}/{}-{}'.format(get_data_dir(), main, spurious)
     os.system('rm -rf {}'.format(pair_dir))
