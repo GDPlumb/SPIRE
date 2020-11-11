@@ -56,23 +56,33 @@ def search(mode, main, spurious, p_correct, trial):
                 changed += 1
         return changed / n
         
+    def get_fail(map1, map2):
+        detected = 0
+        changed = 0
+        for key in map1:
+            if map1[key] == 1:
+                detected += 1
+                if map2[key] == 0:
+                    changed += 1
+        return changed / detected
+        
     ids = splits['both']
     map_orig = get_map(wrapper, images, ids, 'orig')
     for name in ['spurious-box', 'spurious-pixel-paint', 'main-box', 'main-pixel-paint', 'both-inverse', 'main-inverse', 'spurious-inverse']:
         map_name = get_map(wrapper, images, ids, name)
-        metrics['{} and {}'.format('both', name)] = get_diff(map_orig, map_name)
+        metrics['{} and {}'.format('both', name)] = get_fail(map_orig, map_name)
     
     ids = splits['just_main']
     map_orig = get_map(wrapper, images, ids, 'orig')
     for name in ['main-box', 'main-pixel-paint', 'main-inverse']:
         map_name = get_map(wrapper, images, ids, name)
-        metrics['{} and {}'.format('just_main', name)] = get_diff(map_orig, map_name)
+        metrics['{} and {}'.format('just_main', name)] = get_fail(map_orig, map_name)
         
     ids = splits['just_spurious']
     map_orig = get_map(wrapper, images, ids, 'orig')
     for name in ['spurious-box', 'spurious-pixel-paint', 'spurious-inverse']:
         map_name = get_map(wrapper, images, ids, name)
-        metrics['{} and {}'.format('just_spurious', name)] = get_diff(map_orig, map_name)
+        metrics['{} and {}'.format('just_spurious', name)] = get_fail(map_orig, map_name)
         
     with open('{}/search.json'.format(base), 'w') as f:
         json.dump(metrics, f)

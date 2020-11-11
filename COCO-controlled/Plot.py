@@ -180,7 +180,7 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
                     plt.subplot(num_plots, 1, count_plots)
                     plt.plot(x_mean, y_mean, label = mode, alpha = 0.5)
                     plt.scatter(x_all, y_all, alpha = 0.25)
-                    plt.ylabel('Probability Prediction Changes')
+                    plt.ylabel('Probability Prediction Changes from 1 to 0')
                     if set_ylim:
                         plt.ylim((0, 1))
                     plt.xlabel('P(Main | Spurious)')
@@ -199,9 +199,8 @@ if __name__ == '__main__':
     
     try:
         if sys.argv[3] == 'custom':
-            plot(main, spurious, subdir = 'comp-aug', modes_specified = ['initial-transfer', 'main-transfer', 'spurious-transfer'])
+            plot(main, spurious, subdir = 'comp-aug', modes_specified = ['spurious-paint-tune', 'spurious-tune', 'main-paint-tune', 'main-tune', 'both-paint-tune', 'both-tune'])
             plot(main, spurious, subdir = 'comp-train', modes_specified = ['initial-transfer', 'initial-tune'])
-            plot(main, spurious, subdir = 'comp-fill', modes_specified = ['spurious-transfer', 'spurious-paint-transfer', 'spurious-tune', 'spurious-paint-tune'])
-            plot(main, spurious, subdir = 'main', modes_specified = ['initial-tune', 'spurious-transfer', 'spurious-tune'])
+            plot(main, spurious, subdir = 'main', modes_specified = ['initial-tune', 'both-tune'])
     except IndexError:
         pass
