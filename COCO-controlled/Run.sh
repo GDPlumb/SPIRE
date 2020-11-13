@@ -1,22 +1,11 @@
 
 SETUP=false
-TRAIN=false
-EVAL=false
+TRAIN=true
+EVAL=true
 SEARCH=true
 
-for i in  'bottle person' 'car person' 'chair person'
-#            'bowl person'\
-#            'car person' \
-#            'chair person' \
-#            'cup person' \
-#            'dining+table person' \
-#            'bottle cup' \
-#            'bowl cup' \
-#            'chair cup' \
-#            'bottle dining+table' \
-#            'bowl dining+table' \
-#            'chair dining+table' \
-#            'cup dining+table'
+# 'bottle person' 'bowl person' 'car person' 'chair person' 'cup person' 'dining+table person' 'bottle cup' 'bowl cup' 'chair cup' 'bottle dining+table' 'bowl dining+table' 'chair dining+table' 'cup dining+table'
+for i in 'bowl person' 'cup person' 'dining+table person'
 do
     set -- $i
     main=$1
@@ -27,7 +16,7 @@ do
     echo ''
     echo $main $spurious
     
-    for mode in 'initial-transfer' 'initial-tune' 'both-tune' 'main-tune' 'spurious-tune' 'both-paint-tune' 'main-paint-tune' 'spurious-paint-tune'
+    for mode in 'both-paint-tune'
     do
         echo ''
         echo $mode

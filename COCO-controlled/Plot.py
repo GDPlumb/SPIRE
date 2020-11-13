@@ -59,11 +59,14 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
     fig.subplots_adjust(hspace=0.4, wspace=0.4)
     count_plots = 1
     
+    out = {}
     for metric in metric_list:
+        out[metric] = {}
         plt.subplot(num_plots, 1, count_plots)
         
         for mode in mode_list:
             if (modes_specified is None or mode in modes_specified) and mode not in modes_ignored:
+                out[metric][mode] = {}
         
                 x_mean = []
                 y_mean = []
@@ -73,6 +76,7 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
                 for p in p_list:
                     try:
                         values = [data[metric] for data in all_data[p][mode]]
+                        out[metric][mode][p] = values
                         
                         x_mean.append(float(p))
                         y_mean.append(np.mean(values))
@@ -94,6 +98,9 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
         count_plots += 1
     plt.savefig('{}/Results.png'.format(save_dir))
     plt.close()
+    
+    with open('{}/Results.json'.format(save_dir), 'w') as f:
+        json.dump(out, f)
     
     # Get Search Results
     p_list = []
@@ -153,10 +160,13 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
         fig.subplots_adjust(hspace=0.4, wspace=0.4)
         count_plots = 1
     
+        out = {}
         for metric in metric_list_split:
+            out[metric] = {}
             
             for mode in mode_list:
                 if (modes_specified is None or mode in modes_specified) and mode not in modes_ignored:
+                    out[metric][mode] = {}
             
                     x_mean = []
                     y_mean = []
@@ -166,6 +176,7 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
                     for p in p_list:
                         try:
                             values = [data[metric] for data in all_data[p][mode]]
+                            out[metric][mode][p] = values
                             
                             x_mean.append(float(p))
                             y_mean.append(np.mean(values))
@@ -190,6 +201,9 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
             count_plots += 1
         plt.savefig('{}/Search-{}.png'.format(save_dir, split))
         plt.close()
+        
+        with open('{}/Search-{}.json'.format(save_dir, split), 'w') as f:
+            json.dump(out, f)
     
 if __name__ == '__main__':
 
