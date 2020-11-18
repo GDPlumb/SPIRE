@@ -46,25 +46,20 @@ def load_data(ids, images, names):
     labels = labels.reshape((labels.shape[0], 1))
     
     return files, labels
-    
-def load_data_splits(ids, images, splits, names_split, defaults = None):
+
+def load_data_random(ids, images, splits, splits_data):
     files = []
     labels = []
-    for id in ids:
-        included = False
-        for key in splits:
+    for id in ids: # For each image
+        for key in splits: # Fine which split it came from
             if id in splits[key]:
-                for name in images[id]:
-                    if name in names_split[key]:
-                        files.append(images[id][name][0])
-                        labels.append(images[id][name][1])
-                        included = True
-        if not included and defaults is not None:
-            files.append(defaults[0])
-            labels.append(defaults[1])
-                        
+                for name in images[id]: # For each version of this image
+                    if name in splits_data[key]: # If that version is going to be used
+                        if np.random.uniform() <= splits_data[key][name]: # If we sample it, add it
+                            files.append(images[id][name][0])
+                            labels.append(images[id][name][1])
+
     labels = np.array(labels, dtype = np.float32)
     labels = labels.reshape((labels.shape[0], 1))
     
     return files, labels
-

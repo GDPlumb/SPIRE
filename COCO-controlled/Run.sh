@@ -5,7 +5,7 @@ EVAL=true
 SEARCH=true
 
 # 'bottle person' 'bowl person' 'car person' 'chair person' 'cup person' 'dining+table person' 'bottle cup' 'bowl cup' 'chair cup' 'bottle dining+table' 'bowl dining+table' 'chair dining+table' 'cup dining+table'
-for i in 'bowl person' 'cup person' 'dining+table person'
+for i in 'bottle person' 'bowl person' 'car person' 'chair person' 'cup person' 'dining+table person'
 do
     set -- $i
     main=$1
@@ -16,7 +16,7 @@ do
     echo ''
     echo $main $spurious
     
-    for mode in 'both-paint-tune'
+    for mode in 'initial-transfer' 'initial-tune' 'careful-tune'
     do
         echo ''
         echo $mode
@@ -26,7 +26,7 @@ do
             ./SetupPair.sh $main $spurious
         fi
             
-        for p in 0.8 0.9 0.95 0.975
+        for p in 0.5 0.6 0.7
         do
             echo $p
             if $TRAIN ; then
