@@ -16,7 +16,7 @@ do
     echo ''
     echo $main $spurious
     
-    for mode in 'initial-transfer' 'initial-tune' 'careful-tune'
+    for mode in 'careful-paint-tune'
     do
         echo ''
         echo $mode
@@ -26,7 +26,7 @@ do
             ./SetupPair.sh $main $spurious
         fi
             
-        for p in 0.5 0.6 0.7
+        for p in 0.6 0.7
         do
             echo $p
             if $TRAIN ; then
