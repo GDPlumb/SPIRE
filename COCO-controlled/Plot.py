@@ -191,7 +191,7 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
                     plt.subplot(num_plots, 1, count_plots)
                     plt.plot(x_mean, y_mean, label = mode, alpha = 0.5)
                     plt.scatter(x_all, y_all, alpha = 0.25)
-                    plt.ylabel('Probability Prediction Changes from 1 to 0')
+                    plt.ylabel('Probability Prediction Changes')
                     if set_ylim:
                         plt.ylim((0, 1))
                     plt.xlabel('P(Main | Spurious)')

@@ -111,5 +111,6 @@ if __name__ == '__main__':
             except FileNotFoundError:
                 pass
     
-    run(results, ['0.6', '0.7', '0.8', '0.9', '0.95', '0.975'], ['careful-tune', 'careful-paint-tune'], 'initial-tune', title = 'main.png')
-    run(results, ['0.8', '0.9', '0.95', '0.975'], ['both-tune', 'both-paint-tune', 'careful-tune', 'careful-paint-tune'], 'initial-tune', title = 'carefulVSboth.png')
+    run(results, ['0.6', '0.8', '0.9', '0.95', '0.975'], ['careful-tune', 'careful-paint-tune'], 'initial-tune', title = 'main.png')
+    run(results, ['0.6', '0.8', '0.9', '0.95', '0.975'], ['careful-tune'], 'initial-tune', title = 'box.png')
+    run(results, ['0.6', '0.8', '0.9', '0.95', '0.975'], ['careful-paint-tune'], 'initial-tune', title = 'paint.png')
