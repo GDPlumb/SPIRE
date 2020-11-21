@@ -16,6 +16,8 @@ from FormatData_InPainter import get_coords, get_mask, paint
 
 if __name__ == '__main__':
 
+    print('Painting')
+
     main = sys.argv[1]
     spurious = sys.argv[2]
     
