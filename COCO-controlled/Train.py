@@ -98,23 +98,37 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     if mode in ['initial-transfer', 'initial-tune']:
         names = ['orig']
     elif mode in ['careful-tune']:
-        if p_correct >= 0.5:
+        if p_correct > 0.5:
             p_sample = 2 - 1 / p_correct
             names = {}
             names['both'] = {'orig': 1.0, 'main-box': p_sample, 'spurious-box': p_sample}
             names['just_main'] = {'orig': 1.0}
             names['just_spurious'] = {'orig': 1.0}
             names['neither'] = {'orig': 1.0}
+        elif p_correct < 0.5:
+            p_sample = (p_correct - 0.5) / (p_correct - 1)
+            names = {}
+            names['both'] = {'orig': 1.0}
+            names['just_main'] = {'orig': 1.0, 'just_main+just_spurious': p_sample, 'main-box': p_sample}
+            names['just_spurious'] = {'orig': 1.0, 'just_spurious+just_main': p_sample, 'spurious-box': p_sample}
+            names['neither'] = {'orig': 1.0}
         else:
             print('Error: bad p_correct for this mode')
             sys.exit(0)
     elif mode in ['careful-paint-tune']:
-        if p_correct >= 0.5:
+        if p_correct > 0.5:
             p_sample = 2 - 1 / p_correct
             names = {}
             names['both'] = {'orig': 1.0, 'main-pixel-paint': p_sample, 'spurious-pixel-paint': p_sample}
             names['just_main'] = {'orig': 1.0}
             names['just_spurious'] = {'orig': 1.0}
+            names['neither'] = {'orig': 1.0}
+        elif p_correct < 0.5:
+            p_sample = (p_correct - 0.5) / (p_correct - 1)
+            names = {}
+            names['both'] = {'orig': 1.0}
+            names['just_main'] = {'orig': 1.0, 'just_main+just_spurious': p_sample, 'main-pixel-paint': p_sample}
+            names['just_spurious'] = {'orig': 1.0, 'just_spurious+just_main': p_sample, 'spurious-pixel-paint': p_sample}
             names['neither'] = {'orig': 1.0}
         else:
             print('Error: bad p_correct for this mode')

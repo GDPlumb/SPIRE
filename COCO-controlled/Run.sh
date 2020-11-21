@@ -1,8 +1,8 @@
 
 SETUP=false
-TRAIN=false
-EVAL=false
-SEARCH=false
+TRAIN=true
+EVAL=true
+SEARCH=true
 PLOT=true
 
 # 'bottle person' 'bowl person' 'car person' 'chair person' 'cup person' 'dining+table person' 'bottle cup' 'bowl cup' 'chair cup' 'bottle dining+table' 'bowl dining+table' 'chair dining+table' 'cup dining+table'
@@ -17,17 +17,17 @@ do
     echo ''
     echo $main $spurious
     
-    for mode in 'careful-paint-tune'
+    if $SETUP ; then
+    echo 'Setting Up'
+    ./SetupPair.sh $main $spurious
+    fi
+        
+    for mode in 'careful-tune'
     do
         echo ''
         echo $mode
-        
-        if $SETUP ; then
-            echo 'Setting Up'
-            ./SetupPair.sh $main $spurious
-        fi
             
-        for p in 0.6 0.8 0.9 0.95 0.975
+        for p in 0.025 0.05 0.1 0.2 0.4
         do
             echo $p
             if $TRAIN ; then
