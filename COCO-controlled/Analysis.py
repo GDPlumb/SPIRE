@@ -82,8 +82,8 @@ def run(results, p_list, modes_comp, mode_base, title = 'out.png'):
         compare(results, results_type, metric, p_list, modes_comp, mode_base)
     count_plots += 1
 
-    results_type = 'Search-inverse'
-    for metric in ['both and both-inverse', 'both and main-inverse', 'both and spurious-inverse', 'just_main and main-inverse']:
+    results_type = 'Search-add'
+    for metric in ['just_main and just_main+just_spurious', 'just_spurious and just_spurious+just_main', 'neither and neither+just_main', 'neither and neither+just_spurious']:
         plt.subplot(4, 5, count_plots)
         count_plots += 1
         compare(results, results_type, metric, p_list, modes_comp, mode_base)
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     
     results = {} # Type, Pair, Metric, Mode, P - Data
     
-    type_list = ['Results', 'Search-spurious', 'Search-main', 'Search-inverse']
+    type_list = ['Results', 'Search-spurious', 'Search-main', 'Search-add']
     for results_type in type_list:
         results[results_type] = {}
         for exp_dir in glob.glob('{}/*'.format(base)):

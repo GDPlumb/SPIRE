@@ -134,7 +134,9 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
     
     def get_split(metric):
         chunks = metric.split(' and ')[1].split('-')
-        if 'inverse' in chunks:
+        if '+' in chunks[0]:
+            return 'add'
+        elif 'inverse' in chunks:
             return 'inverse'
         elif 'main' in chunks:
             return 'main'
@@ -144,13 +146,15 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
             print(metric)
             
     metric_splits = {}
-    metric_splits['inverse'] = []
-    metric_splits['main'] = []
     metric_splits['spurious'] = []
+    metric_splits['main'] = []
+    metric_splits['add'] = []
+    metric_splits['inverse'] = []
+
     for metric in metric_list:
         metric_splits[get_split(metric)].append(metric)
         
-    for split in ['spurious', 'main', 'inverse']:
+    for split in ['spurious', 'main', 'add']:
     
         metric_list_split = metric_splits[split]
     
