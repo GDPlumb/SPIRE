@@ -6,7 +6,7 @@ from PIL import Image
 import sys
 from torchvision import transforms
 
-from Config import get_data_dir
+from Config import get_data_dir, get_random_seed
 from Misc import id_from_path
 
 sys.path.insert(0, '../COCO/')
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     mask_mode = 'pixel'
     unmask = False
     
-    np.random.seed(0)
+    np.random.seed(get_random_seed())
     
     pair_dir = '{}/{}-{}'.format(get_data_dir(), main, spurious)
     for mode in ['val', 'train']:
@@ -50,7 +50,9 @@ if __name__ == '__main__':
             id2img[id_from_path(img['file_name'])] = img
 
         for config in [('just_spurious', 'just_main', main, 1), \
-                        ('just_main', 'just_spurious', spurious, 1)]:
+                        ('just_main', 'just_spurious', spurious, 1), \
+                        ('neither', 'just_main', main, 1), \
+                        ('neither', 'just_spurious', spurious, 0)]:
         
             background_split = config[0]
             object_split = config[1]

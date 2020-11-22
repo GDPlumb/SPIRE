@@ -5,7 +5,7 @@ import pickle
 import random
 import sys
 
-from Config import get_data_dir
+from Config import get_data_dir, get_random_seed
 from Misc import get_pair, id_from_path
 
 sys.path.insert(0, '../COCO/')
@@ -19,7 +19,9 @@ if __name__ == '__main__':
     main = sys.argv[1]
     spurious = sys.argv[2]
     
-    random.seed(0)
+    random.seed(get_random_seed())
+    num_samples_train = 1000 #Note:  We need there to be at least this many images per split.  
+    num_samples_val = 500 #Note:  We do not need there to be this many images per split.  This is an upper bound that is set to make evaluation quicker.
     
     # Setup the main directory for this pair
     pair_dir = '{}/{}-{}'.format(get_data_dir(), main, spurious)
@@ -27,7 +29,6 @@ if __name__ == '__main__':
     os.system('mkdir {}'.format(pair_dir))
     
     # Sample the images that will be used as the base images for these experiments
-    num_samples = 1000 #Only applies to train
     for mode in ['val', 'train']:
         mode_dir = '{}/{}'.format(pair_dir, mode)
         os.system('mkdir {}'.format(mode_dir))
@@ -46,16 +47,16 @@ if __name__ == '__main__':
         # Randomly choose a sample from each of the splits to use all experiments
         if mode == 'val':
             splits = {}
-            splits['both'] = list(both)
-            splits['just_main'] = list(just_main)
-            splits['just_spurious'] = list(just_spurious)
-            splits['neither'] = list(neither)
+            splits['both'] = random.sample(list(both), min(len(both), num_samples_val))
+            splits['just_main'] = random.sample(list(just_main), min(len(just_main), num_samples_val))
+            splits['just_spurious'] = random.sample(list(just_spurious), min(len(just_spurious), num_samples_val))
+            splits['neither'] = random.sample(list(neither), min(len(neither), num_samples_val))
         elif mode == 'train':
             splits = {}
-            splits['both'] = random.sample(list(both), num_samples)
-            splits['just_main'] = random.sample(list(just_main), num_samples)
-            splits['just_spurious'] = random.sample(list(just_spurious), num_samples)
-            splits['neither'] = random.sample(list(neither), num_samples)
+            splits['both'] = random.sample(list(both), num_samples_train)
+            splits['just_main'] = random.sample(list(just_main), num_samples_train)
+            splits['just_spurious'] = random.sample(list(just_spurious), num_samples_train)
+            splits['neither'] = random.sample(list(neither), num_samples_train)
         
         # Create the datastructures to store the images
         # splits:  maps from Split to Image ID
