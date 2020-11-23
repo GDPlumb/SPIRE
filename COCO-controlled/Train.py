@@ -133,18 +133,18 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         else:
             print('Error: bad p_correct for this mode')
             sys.exit(0)
-    elif mode in ['both-tune']:
-        names = ['orig', 'main-box', 'spurious-box']
-    elif mode in ['main-tune']:
-        names = ['orig', 'main-box']
-    elif mode in ['spurious-tune']:
-    	names = ['orig', 'spurious-box']
-    elif mode in ['both-paint-tune']:
-        names = ['orig', 'main-pixel-paint', 'spurious-pixel-paint']
-    elif mode in ['main-paint-tune']:
-    	names = ['orig', 'main-pixel-paint']
-    elif mode in ['spurious-paint-tune']:
-    	names = ['orig', 'spurious-pixel-paint']
+    elif mode in ['full-tune']:
+        names = {}
+        names['both'] = {'orig': 1.0, 'main-box': 1.0, 'spurious-box': 1.0}
+        names['just_main'] = {'orig': 1.0, 'just_main+just_spurious': 0.5, 'main-box': 0.5}
+        names['just_spurious'] = {'orig': 1.0, 'just_spurious+just_main': 0.5, 'spurious-box': 0.5}
+        names['neither'] = {'orig': 1.0}
+    elif mode in ['full-paint-tune']:
+        names = {}
+        names['both'] = {'orig': 1.0, 'main-pixel-paint': 1.0, 'spurious-pixel-paint': 1.0}
+        names['just_main'] = {'orig': 1.0, 'just_main+just_spurious': 0.5, 'main-pixel-paint': 0.5}
+        names['just_spurious'] = {'orig': 1.0, 'just_spurious+just_main': 0.5, 'spurious-pixel-paint': 0.5}
+        names['neither'] = {'orig': 1.0}
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
