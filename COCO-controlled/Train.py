@@ -9,7 +9,7 @@ import torch
 import torchvision.models as models
 
 from Config import get_data_dir
-from Misc import load_data, load_data_random
+from Misc import load_data_random
 
 sys.path.insert(0, '../COCO/')
 from Dataset import ImageDataset, my_dataloader
@@ -96,8 +96,12 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
 
     # Load the the data specified by mode for each Image ID
     if mode in ['initial-transfer', 'initial-tune']:
-        names = ['orig']
-    elif mode in ['careful-tune']:
+        names = {}
+        names['both'] = {'orig': 1.0}
+        names['just_main'] = {'orig': 1.0}
+        names['just_spurious'] = {'orig': 1.0}
+        names['neither'] = {'orig': 1.0}
+    elif mode in ['minimal-tune']:
         if p_correct > 0.5:
             p_sample = 2 - 1 / p_correct
             names = {}
@@ -115,7 +119,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         else:
             print('Error: bad p_correct for this mode')
             sys.exit(0)
-    elif mode in ['careful-paint-tune']:
+    elif mode in ['minimal-paint-tune']:
         if p_correct > 0.5:
             p_sample = 2 - 1 / p_correct
             names = {}
@@ -149,15 +153,8 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         print('Error: Unrecognized mode')
         sys.exit(0)
         
-    if  isinstance(names, dict):
-        files_train, labels_train = load_data_random(ids_train, images, splits, names)
-        files_val, labels_val = load_data_random(ids_val, images, splits, names)
-    elif isinstance(names, list):
-        files_train, labels_train = load_data(ids_train, images, names)
-        files_val, labels_val = load_data(ids_val, images, names)
-    else:
-        print('Error:  Unrecognized type for names')
-        sys.exit(0)
+    files_train, labels_train = load_data_random(ids_train, images, splits, names)
+    files_val, labels_val = load_data_random(ids_val, images, splits, names)
 
     datasets = {}
     datasets['train'] = ImageDataset(files_train, labels_train)
