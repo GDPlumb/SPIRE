@@ -55,16 +55,15 @@ def search(mode, main, spurious, p_correct, trial):
             if map1[key] != map2[key]:
                 changed += 1
         return changed / n
-        
-    def get_fail(map1, map2):
-        detected = 0
-        changed = 0
+    
+    def get_both(map1, map2):
+        counts = np.zeros((2,2))
         for key in map1:
-            if map1[key] == 1:
-                detected += 1
-                if map2[key] == 0:
-                    changed += 1
-        return changed / detected
+            p1 = map1[key]
+            p2 = map2[key]
+            counts[p1, p2] += 1
+        # Return:  Probability of 0 to 1 given 0 to start, Probability of 1 to 0 given 1 to start
+        return [counts[0, 1] / (counts[0, 0] + counts[0, 1]), counts[1, 0] / (counts[1, 0] + counts[1, 1])]
         
     ids = splits['both']
     map_orig = get_map(wrapper, images, ids, 'orig')
