@@ -29,7 +29,7 @@ def format_standard(root, mode, year):
     with open('{}/{}{}-info.p'.format(root, mode, year), 'wb') as f:
         pickle.dump([filenames, labels], f)
 
-def get_mask(anns, mask_classes, coco, mode = 'box', unmask = True):
+def get_mask(anns, mask_classes, coco, mode = 'box', unmask = True, unmask_classes = None):
 
     # Find the mask for each object we want to remove
     mask = []
@@ -60,8 +60,16 @@ def get_mask(anns, mask_classes, coco, mode = 'box', unmask = True):
         # If we want to unmask any objects other than those we explicitly masked
         if unmask:
             unmask = []
+            
+            if unmask_classes is None:
+                def check(cat):
+                    return (cat not in mask_classes)
+            else:
+                def check(cat):
+                    return (cat in unmask_classes)
+            
             for ann in anns:
-                if ann['category_id'] not in mask_classes:
+                if check(ann['category_id']):
                     tmp = coco.annToMask(ann)
                     unmask.append(tmp)
             if len(unmask) > 0:
@@ -87,7 +95,7 @@ def apply_mask(img, mask, value = 'default', invert = False):
     img = Image.fromarray(img_np)
     return img
 
-def mask_images(images, coco, base_location, save_location, chosen_id = None, mode = 'box', invert = False, unmask = True, use_png = False):
+def mask_images(images, coco, base_location, save_location, chosen_id = None, mode = 'box', invert = False, unmask = True, unmask_classes = None, use_png = False):
     filenames = []
     labels = []
     for img_obj in images:
@@ -116,7 +124,7 @@ def mask_images(images, coco, base_location, save_location, chosen_id = None, mo
             # Mask the image
             if not isinstance(tmp_id, list):
                 tmp_id = [tmp_id]
-            mask = get_mask(anns, tmp_id, coco, mode = mode, unmask = unmask)
+            mask = get_mask(anns, tmp_id, coco, mode = mode, unmask = unmask, unmask_classes = unmask_classes)
             img = apply_mask(img, mask, invert = invert)
 
         # Save the output
@@ -128,7 +136,7 @@ def mask_images(images, coco, base_location, save_location, chosen_id = None, mo
         
     return filenames, labels
     
-def mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = 'box', invert = False, unmask = True, use_png = False, workers = 24):
+def mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = 'box', invert = False, unmask = True, unmask_classes = None, use_png = False, workers = 24):
 
     # Split the images to pass them to the workers
     images_split = []
@@ -141,8 +149,8 @@ def mask_images_parallel(images, coco, base_location, save_location, chosen_id =
         next_worker = (next_worker + 1) % workers
         
     # Define the worker function
-    def mask_images_worker(id, images_split = images_split, coco = coco, base_location = base_location, save_location = save_location, chosen_id = chosen_id, mode = mode, invert = invert, unmask = unmask, use_png = use_png):
-        names, labels = mask_images(images_split[id], coco, base_location, save_location, chosen_id = chosen_id, mode = mode, invert = invert, unmask = unmask, use_png = use_png)
+    def mask_images_worker(id, images_split = images_split, coco = coco, base_location = base_location, save_location = save_location, chosen_id = chosen_id, mode = mode, invert = invert, unmask = unmask, unmask_classes = unmask_classes, use_png = use_png):
+        names, labels = mask_images(images_split[id], coco, base_location, save_location, chosen_id = chosen_id, mode = mode, invert = invert, unmask = unmask, unmask_classes = unmask_classes, use_png = use_png)
         with open('tmp-{}.p'.format(id), 'wb') as f:
             pickle.dump([names, labels], f)
         

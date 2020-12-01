@@ -92,8 +92,12 @@ if __name__ == '__main__':
             
             if chosen_class == main:
                 class_type = 'main'
+                unmask = False
+                unmask_classes = None
             elif chosen_class == spurious:
                 class_type = 'spurious'
+                unmask = True
+                unmask_classes = [coco.get_class_id(main)]
 
             config_dir = '{}/{}'.format(mode_dir, config[2])
             os.system('mkdir {}'.format(config_dir))
@@ -105,7 +109,7 @@ if __name__ == '__main__':
                 mask_dir = '{}/{}'.format(config_dir, mask_mode)
                 os.system('mkdir {}'.format(mask_dir))
 
-                mask_images_parallel(imgs, coco.coco, coco_dir, mask_dir, mode = mask_mode, use_png = True, chosen_id = chosen_id)
+                mask_images_parallel(imgs, coco.coco, coco_dir, mask_dir, chosen_id = chosen_id, mode = mask_mode, use_png = True, unmask = unmask, unmask_classes = unmask_classes)
                 
                 for id in ids:
                     images[id]['{}-{}'.format(class_type, mask_mode)] = ['{}/{}png'.format(mask_dir, id2img[id]['file_name'][:-3]), label]
