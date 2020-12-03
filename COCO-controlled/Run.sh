@@ -1,8 +1,8 @@
 
-SETUP=false
-TRAIN=false
-EVAL=false
-SEARCH=false
+SETUP=true
+TRAIN=true
+EVAL=true
+SEARCH=true
 PLOT=true
 
 # 'bottle person' 'bowl person' 'car person' 'chair person' 'cup person' 'dining+table person' 'bottle cup' 'bowl cup' 'chair cup' 'bottle dining+table' 'bowl dining+table' 'chair dining+table' 'cup dining+table'
@@ -22,7 +22,7 @@ do
     ./SetupPair.sh $main $spurious
     fi
         
-    for mode in 'minimal-tune'
+    for mode in 'initial-transfer' 'initial-tune' 'minimal-tune'
     do
         echo ''
         echo $mode

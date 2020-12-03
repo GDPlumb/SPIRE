@@ -165,16 +165,16 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     dataloaders['val'] = my_dataloader(datasets['val'])
     
     # Setup the model and optimization process
-    model = models.mobilenet_v2(pretrained = True)
+    model = models.resnet18(pretrained = True)
 
     if 'transfer' in mode.split('-'):
         for param in model.parameters():
             param.requires_grad = False
-        model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
-        optim_params = model.classifier.parameters()
+        model.fc = torch.nn.Linear(in_features = 512, out_features = 1)
+        optim_params = model.fc.parameters()
         lr = 0.001
     elif 'tune' in mode.split('-'):
-        model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
+        model.fc = torch.nn.Linear(in_features = 512, out_features = 1)
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
         optim_params = model.parameters()
         lr = 0.0001

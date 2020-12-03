@@ -26,8 +26,8 @@ def evaluate(mode, main, spurious, p_correct, trial):
         images = pickle.load(f)
         
     # Setup the model
-    model = models.mobilenet_v2(pretrained = True)
-    model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 1)
+    model = models.resnet18(pretrained = True)
+    model.fc = torch.nn.Linear(in_features = 512, out_features = 1)
     model.cuda()
     
     model.load_state_dict(torch.load('{}/model.pt'.format(base)))
