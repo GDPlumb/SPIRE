@@ -101,6 +101,12 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         names['just_main'] = {'orig': 1.0}
         names['just_spurious'] = {'orig': 1.0}
         names['neither'] = {'orig': 1.0}
+        
+        if mode == 'initial-transfer':
+            lr = 0.001
+        elif mode == 'initial-tune':
+            lr = 0.0001
+        
     elif mode in ['minimal-tune']:
         if p_correct > 0.5:
             p_sample = 2 - 1 / p_correct
@@ -119,36 +125,8 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         else:
             print('Error: bad p_correct for this mode')
             sys.exit(0)
-    elif mode in ['minimal-paint-tune']:
-        if p_correct > 0.5:
-            p_sample = 2 - 1 / p_correct
-            names = {}
-            names['both'] = {'orig': 1.0, 'main-pixel-paint': p_sample, 'spurious-pixel-paint': p_sample}
-            names['just_main'] = {'orig': 1.0}
-            names['just_spurious'] = {'orig': 1.0}
-            names['neither'] = {'orig': 1.0}
-        elif p_correct < 0.5:
-            p_sample = (p_correct - 0.5) / (p_correct - 1)
-            names = {}
-            names['both'] = {'orig': 1.0}
-            names['just_main'] = {'orig': 1.0, 'just_main+just_spurious': p_sample, 'main-pixel-paint': p_sample}
-            names['just_spurious'] = {'orig': 1.0, 'just_spurious+just_main': p_sample, 'spurious-pixel-paint': p_sample}
-            names['neither'] = {'orig': 1.0}
-        else:
-            print('Error: bad p_correct for this mode')
-            sys.exit(0)
-    elif mode in ['full-tune']:
-        names = {}
-        names['both'] = {'orig': 1.0, 'main-box': 1.0, 'spurious-box': 1.0}
-        names['just_main'] = {'orig': 1.0, 'just_main+just_spurious': 0.5, 'main-box': 0.5}
-        names['just_spurious'] = {'orig': 1.0, 'just_spurious+just_main': 0.5, 'spurious-box': 0.5}
-        names['neither'] = {'orig': 1.0}
-    elif mode in ['full-paint-tune']:
-        names = {}
-        names['both'] = {'orig': 1.0, 'main-pixel-paint': 1.0, 'spurious-pixel-paint': 1.0}
-        names['just_main'] = {'orig': 1.0, 'just_main+just_spurious': 0.5, 'main-pixel-paint': 0.5}
-        names['just_spurious'] = {'orig': 1.0, 'just_spurious+just_main': 0.5, 'spurious-pixel-paint': 0.5}
-        names['neither'] = {'orig': 1.0}
+            
+        lr = 0.0001
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
@@ -165,19 +143,21 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     dataloaders['val'] = my_dataloader(datasets['val'])
     
     # Setup the model and optimization process
-    model = models.resnet18(pretrained = True)
+    model = models.vgg16(pretrained = True)
 
-    if 'transfer' in mode.split('-'):
+    if mode == 'initial-transfer':
         for param in model.parameters():
             param.requires_grad = False
-        model.fc = torch.nn.Linear(in_features = 512, out_features = 1)
-        optim_params = model.fc.parameters()
-        lr = 0.001
-    elif 'tune' in mode.split('-'):
-        model.fc = torch.nn.Linear(in_features = 512, out_features = 1)
+        model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
+        optim_params = model.classifier[6].parameters()
+    elif mode == 'initial-tune':
+        model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
         optim_params = model.parameters()
-        lr = 0.0001
+    elif mode in ['minimal-tune']:
+        model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
+        model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
+        optim_params = model.parameters()
     else:
         print('Error:  could not determine what model parameters are trainable')
         sys.exit(0)
@@ -189,6 +169,8 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
                         lr_init = lr, select_cutoff = 5, decay_max = 1)
     torch.save(model.state_dict(), '{}.pt'.format(name))
+    
+    os.system('rm -rf {}'.format(name)) # Clean up the model history saved during training
 
 if __name__ == '__main__':
     

@@ -26,8 +26,8 @@ def search(mode, main, spurious, p_correct, trial):
         images = pickle.load(f)
         
     # Setup the model
-    model = models.resnet18(pretrained = True)
-    model.fc = torch.nn.Linear(in_features = 512, out_features = 1)
+    model = models.vgg16(pretrained = True)
+    model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
     model.cuda()
     
     model.load_state_dict(torch.load('{}/model.pt'.format(base)))
