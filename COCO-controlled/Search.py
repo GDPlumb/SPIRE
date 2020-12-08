@@ -13,6 +13,9 @@ sys.path.insert(0, '../COCO/')
 from Dataset import ImageDataset, my_dataloader
 from ModelWrapper import ModelWrapper
 
+sys.path.insert(0, '../Common/')
+from ResNet import get_model
+
 def search(mode, main, spurious, p_correct, trial):
 
     base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
@@ -26,11 +29,8 @@ def search(mode, main, spurious, p_correct, trial):
         images = pickle.load(f)
         
     # Setup the model
-    model = models.vgg16(pretrained = True)
-    model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
+    model = get_model(mode = 'eval', parent = '{}/model.pt'.format(base))
     model.cuda()
-    
-    model.load_state_dict(torch.load('{}/model.pt'.format(base)))
     model.eval()
     
     wrapper = ModelWrapper(model, get_names = True)

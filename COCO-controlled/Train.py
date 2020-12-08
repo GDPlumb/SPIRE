@@ -15,8 +15,9 @@ sys.path.insert(0, '../COCO/')
 from Dataset import ImageDataset, ImageDataset_Paired, my_dataloader
 
 sys.path.insert(0, '../Common/')
-from Train_info import train_model
 from Features import Features
+from ResNet import get_model
+from Train_info import train_model
 
 def metric_acc_batch(y_hat, y):
     y_hat = y_hat.cpu().data.numpy()
@@ -178,37 +179,20 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     dataloaders['val'] = my_dataloader(datasets['val'], batch_size = batch_size)
     
     # Setup the model and optimization process
-    model = models.vgg16(pretrained = True)
-
     if mode == 'initial-transfer':
-        for param in model.parameters():
-            param.requires_grad = False
-        model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
-        optim_params = model.classifier[6].parameters()
+        model, optim_params = get_model(mode = 'transfer', parent = 'pretrained')
     elif mode == 'initial-tune':
-        model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
-        model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
-        optim_params = model.parameters()
+        model, optim_params = get_model(mode = 'tune', parent = './Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial))
     elif mode in ['gs-transfer', 'cdep-transfer']:
-        # Load initial-tune
-        model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
-        model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
-        # Setup transfer learning
-        for param in model.parameters():
-            param.requires_grad = False
-        model.classifier[6].weight.requires_grad = True
-        model.classifier[6].bias.requires_grad = True
-        optim_params = model.classifier[6].parameters()
+        model, optim_params = get_model(mode = 'transfer', parent = './Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial))
         # Setup the feature hook for getting the representations
         if mode == 'gs-tranfser':
             feature_hook = Features(requires_grad = True)
-            handle = list(model.modules())[39].register_forward_hook(feature_hook) # For VGG16, this gets the representation just before the Dropout layer
+            handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
     elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-tune']:
-        model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
-        model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
-        optim_params = model.parameters()
+        model, optim_params = get_model(mode = 'tune', parent = './Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial))
     else:
-        print('Error:  could not determine what model parameters are trainable')
+        print('Train.py: Could not determine trainable parameters')
         sys.exit(0)
 
     model.cuda()

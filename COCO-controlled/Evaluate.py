@@ -13,6 +13,9 @@ sys.path.insert(0, '../COCO/')
 from Dataset import ImageDataset, my_dataloader
 from ModelWrapper import ModelWrapper
 
+sys.path.insert(0, '../Common/')
+from ResNet import get_model
+
 def evaluate(model_dir, data_dir):
 
     # Load the images for this pair
@@ -23,11 +26,8 @@ def evaluate(model_dir, data_dir):
         images = pickle.load(f)
         
     # Setup the model
-    model = models.vgg16(pretrained = True)
-    model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
+    model = get_model(mode = 'eval', parent = '{}/model.pt'.format(model_dir))
     model.cuda()
-    
-    model.load_state_dict(torch.load('{}/model.pt'.format(model_dir)))
     model.eval()
     
     wrapper = ModelWrapper(model)

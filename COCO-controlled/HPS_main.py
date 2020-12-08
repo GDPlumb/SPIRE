@@ -30,11 +30,11 @@ if 'tune' in mode.split('-'):
 elif 'transfer' in mode.split('-'):
     lr_list = [0.001]
 
-if mode in ['cdep-tune']:
+if mode in []:
     config['batch_size'] = 8
 elif mode in ['rrr-tune', 'gs-tune']:
     config['batch_size'] = 16
-elif mode in ['cdep-transfer']:
+elif mode in ['cdep-transfer', 'cdep-tune']:
     config['batch_size'] = 32
 else:
     config['batch_size'] = 64
