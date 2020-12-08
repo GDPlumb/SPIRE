@@ -16,6 +16,7 @@ from Dataset import ImageDataset, ImageDataset_Paired, my_dataloader
 
 sys.path.insert(0, '../Common/')
 from Train_info import train_model
+from Features import Features
 
 def metric_acc_batch(y_hat, y):
     y_hat = y_hat.cpu().data.numpy()
@@ -101,6 +102,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     # Load defaults
     mode_param = 0.0
     batch_size = 64
+    feature_hook = None
 
     # Load the the data specified by mode for each Image ID
     if mode in ['initial-transfer', 'initial-tune']:
@@ -138,6 +140,9 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     elif mode in ['rrr-tune']:
         name_1 = 'orig'
         name_2 = 'spurious-pixel'
+    elif mode in ['gs-transfer', 'gs-tune']:
+        name_1 = 'orig'
+        name_2 = 'main-pixel-paint'
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
@@ -153,7 +158,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         batch_size = bs_override
     
     # Setup the data loaders
-    if mode in ['rrr-tune']:
+    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune']:
         files_1_train, labels_1_train, files_2_train = load_data_paired(ids_train, images, name_1, name_2)
         files_1_val, labels_1_val, files_2_val = load_data_paired(ids_val, images, name_1, name_2)
         
@@ -184,7 +189,20 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
         optim_params = model.parameters()
-    elif mode in ['minimal-tune', 'rrr-tune']:
+    elif mode == 'gs-transfer':
+        # Load initial-tune
+        model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
+        model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
+        # Setup transfer learning
+        for param in model.parameters():
+            param.requires_grad = False
+        model.classifier[6].weight.requires_grad = True
+        model.classifier[6].bias.requires_grad = True
+        optim_params = model.classifier[6].parameters()
+        # Setup the feature hook for getting the representations
+        feature_hook = Features(requires_grad = True)
+        handle = list(model.modules())[39].register_forward_hook(feature_hook) # For VGG16, this gets the representation just before the Dropout layer
+    elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune']:
         model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
         optim_params = model.parameters()
@@ -198,7 +216,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
                         lr_init = lr, select_cutoff = 5, decay_max = 1,
-                        mode = mode, mode_param = mode_param)
+                        mode = mode, mode_param = mode_param, feature_hook = feature_hook)
     torch.save(model.state_dict(), '{}.pt'.format(name))
     
     os.system('rm -rf {}'.format(name)) # Clean up the model history saved during training

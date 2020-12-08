@@ -8,22 +8,28 @@ import torch
 import torch.optim as optim
 
 from RRR import rrr_loss
+from GS import gs_loss
     
 def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg,
                 lr_init = 0.001, decay_phase = 'train', decay_metric = 'loss', decay_min = 0.001, decay_delay = 3, decay_rate = 0.1, decay_max = 2, # Learning rate configuration
                 select_metric = 'acc', select_metric_index = 0, select_min = 0.001, select_cutoff = 5, # Model selection configuration
-                mode = None, mode_param = None,
+                mode = None, mode_param = None, feature_hook = None,
                 name = 'history'):
                 
-    if mode in ['rrr-tune']:
+    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune']:
         REG = True
     else:
         REG = False
         
-    if mode in ['rrr-tune']:
+    if mode in ['rrr-tune', 'gs-tune']:
         INPUT_GRAD = True
+        GRAD_DURING_VAL = True
+    elif mode in ['gs-transfer']:
+        INPUT_GRAD = False
+        GRAD_DURING_VAL = True
     else:
         INPUT_GRAD = False
+        GRAD_DURING_VAL = False
     
     # Setup the learning rate and optimizer
     
@@ -135,12 +141,23 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                 optimizer.zero_grad()
 
                 # forward
-                with torch.set_grad_enabled(phase == 'train' or INPUT_GRAD):
+                with torch.set_grad_enabled(phase == 'train' or GRAD_DURING_VAL):
                     pred = model(x)
                     loss_main = metric_loss(pred, y)
                     
                     if mode == 'rrr-tune':
                         loss_reg = rrr_loss(x, x_prime, torch.sigmoid(pred))
+                        loss = loss_main + mode_param * loss_reg
+                    elif mode == 'gs-transfer':
+                        rep = feature_hook.features
+                        
+                        pred_prime = model(x_prime)
+                        rep_prime = feature_hook.features
+                        
+                        loss_reg = gs_loss(rep, rep_prime, torch.sigmoid(pred))
+                        loss = loss_main + mode_param * loss_reg
+                    elif mode == 'gs-tune':
+                        loss_reg = gs_loss(x, x_prime, torch.sigmoid(pred))
                         loss = loss_main + mode_param * loss_reg
                     else:
                         loss = loss_main
