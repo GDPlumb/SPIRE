@@ -9,10 +9,10 @@ import torch
 import torchvision.models as models
 
 from Config import get_data_dir
-from Misc import load_data_random
+from Misc import load_data_random, load_data_paired
 
 sys.path.insert(0, '../COCO/')
-from Dataset import ImageDataset, my_dataloader
+from Dataset import ImageDataset, ImageDataset_Paired, my_dataloader
 
 sys.path.insert(0, '../Common/')
 from Train_info import train_model
@@ -42,7 +42,7 @@ def metric_acc_agg(counts_list = None):
         return [correct / total]
         
 def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5, n = 2000,
-            mp_override = None, lr_override = None,
+            mp_override = None, lr_override = None, bs_override = None,
             base = None):
 
     # Setup the output directory
@@ -97,6 +97,10 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     # Get the ids of the training images for this experiment
     # By splitting on Image ID, we ensure all counterfactual version of an image are in the same fold
     ids_train, ids_val = train_test_split(ids, test_size = 0.1)
+    
+    # Load defaults
+    mode_param = 0.0
+    batch_size = 64
 
     # Load the the data specified by mode for each Image ID
     if mode in ['initial-transfer', 'initial-tune']:
@@ -131,6 +135,9 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
             sys.exit(0)
             
         lr = 0.0001
+    elif mode in ['rrr-tune']:
+        name_1 = 'orig'
+        name_2 = 'spurious-pixel'
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
@@ -141,18 +148,29 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         
     if lr_override is not None:
         lr = lr_override
+        
+    if bs_override is not None:
+        batch_size = bs_override
     
     # Setup the data loaders
-    files_train, labels_train = load_data_random(ids_train, images, splits, names)
-    files_val, labels_val = load_data_random(ids_val, images, splits, names)
+    if mode in ['rrr-tune']:
+        files_1_train, labels_1_train, files_2_train = load_data_paired(ids_train, images, name_1, name_2)
+        files_1_val, labels_1_val, files_2_val = load_data_paired(ids_val, images, name_1, name_2)
+        
+        datasets = {}
+        datasets['train'] = ImageDataset_Paired(files_1_train, labels_1_train, files_2_train)
+        datasets['val'] = ImageDataset_Paired(files_1_val, labels_1_val, files_2_val)
+    else:
+        files_train, labels_train = load_data_random(ids_train, images, splits, names)
+        files_val, labels_val = load_data_random(ids_val, images, splits, names)
 
-    datasets = {}
-    datasets['train'] = ImageDataset(files_train, labels_train)
-    datasets['val'] = ImageDataset(files_val, labels_val)
+        datasets = {}
+        datasets['train'] = ImageDataset(files_train, labels_train)
+        datasets['val'] = ImageDataset(files_val, labels_val)
 
     dataloaders = {}
-    dataloaders['train'] = my_dataloader(datasets['train'])
-    dataloaders['val'] = my_dataloader(datasets['val'])
+    dataloaders['train'] = my_dataloader(datasets['train'], batch_size = batch_size)
+    dataloaders['val'] = my_dataloader(datasets['val'], batch_size = batch_size)
     
     # Setup the model and optimization process
     model = models.vgg16(pretrained = True)
@@ -166,7 +184,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
         optim_params = model.parameters()
-    elif mode in ['minimal-tune']:
+    elif mode in ['minimal-tune', 'rrr-tune']:
         model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
         optim_params = model.parameters()
@@ -179,7 +197,8 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     metric_loss = torch.nn.BCEWithLogitsLoss()
     
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
-                        lr_init = lr, select_cutoff = 5, decay_max = 1)
+                        lr_init = lr, select_cutoff = 5, decay_max = 1,
+                        mode = mode, mode_param = mode_param)
     torch.save(model.state_dict(), '{}.pt'.format(name))
     
     os.system('rm -rf {}'.format(name)) # Clean up the model history saved during training

@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     # Train the model
     train(mode, main, spurious, p_correct, trial,
-            lr_override = learning_rate, mp_override = mode_param,
+            lr_override = learning_rate, mp_override = mode_param, bs_override = batch_size,
             base = base)
 
     # Evaluate the model

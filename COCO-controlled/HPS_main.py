@@ -7,7 +7,7 @@ from subprocess import Popen
 import time
 
 # Hyper Parmaeter Search setup
-mode = 'initial-tune'
+mode = 'rrr-tune'
 n_trials = 4
 
 print()
@@ -24,15 +24,15 @@ config['p_correct'] = 0.90
 # Mode specific configuration
 config['mode'] = mode
 
-if mode in []:
-    config['batch_size'] = -1
+lr_list = [0.0001]
+
+if mode in ['rrr-tune']:
+    config['batch_size'] = 16
 else:
     config['batch_size'] = 64
 
-lr_list = [0.001, 0.0001, 0.00001]
-
-if mode in []:
-    mp_list = []
+if mode in ['rrr-tune']:
+    mp_list = [1.0]
 else:
     mp_list = [0]
 
@@ -61,7 +61,7 @@ for mp in mp_list:
            p.wait()
 
         # Aggregate and save the results
-        base = './HPS/{}-{}-{}/{}/{}-{}/'.format(config['main'], config['spurious'], config['p_correct'], mode, config['mode_param'], config['learning_rate'])
+        base = './HPS/{}-{}-{}/{}/{}-{}'.format(config['main'], config['spurious'], config['p_correct'], mode, config['mode_param'], config['learning_rate'])
 
         all_data = []
         for i in range(n_trials):

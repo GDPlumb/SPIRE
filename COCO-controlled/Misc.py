@@ -71,3 +71,27 @@ def load_data_random(ids, images, splits, splits_data):
     labels = labels.reshape((labels.shape[0], 1))
     
     return files, labels
+
+def load_data_paired(ids, images, name_1, name_2):
+    files_1 = []
+    labels_1 = []
+    files_2 = []
+    for id in ids:
+        
+        # name_1 is not optional: crash if it is missing
+        info = images[id][name_1]
+        files_1.append(info[0])
+        labels_1.append(info[1])
+        
+        # name_2 is optional:  default to name_1 info if missing
+        try:
+            info = images[id][name_2]
+        except KeyError:
+            pass
+        
+        files_2.append(info[0])
+
+    labels_1 = np.array(labels_1, dtype = np.float32)
+    labels_1 = labels_1.reshape((labels_1.shape[0], 1))
+    
+    return files_1, labels_1, files_2

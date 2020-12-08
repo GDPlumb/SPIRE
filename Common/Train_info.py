@@ -6,11 +6,24 @@ import os
 import sys
 import torch
 import torch.optim as optim
+
+from RRR import rrr_loss
     
 def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg,
                 lr_init = 0.001, decay_phase = 'train', decay_metric = 'loss', decay_min = 0.001, decay_delay = 3, decay_rate = 0.1, decay_max = 2, # Learning rate configuration
                 select_metric = 'acc', select_metric_index = 0, select_min = 0.001, select_cutoff = 5, # Model selection configuration
+                mode = None, mode_param = None,
                 name = 'history'):
+                
+    if mode in ['rrr-tune']:
+        REG = True
+    else:
+        REG = False
+        
+    if mode in ['rrr-tune']:
+        INPUT_GRAD = True
+    else:
+        INPUT_GRAD = False
     
     # Setup the learning rate and optimizer
     
@@ -22,6 +35,11 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
     loss_history = {}
     loss_history['train'] = []
     loss_history['val'] = []
+    
+    if REG:
+        loss_history_reg = {}
+        loss_history_reg['train'] = []
+        loss_history_reg['val'] = []
     
     acc_history = {}
     acc_history['train'] = []
@@ -93,6 +111,8 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                 model.eval()
 
             running_loss = 0.0
+            if REG:
+                running_loss_reg = 0.0
             running_acc = []
             running_counts = 0
 
@@ -104,14 +124,27 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                 x = x.to('cuda')
                 batch_size = x.size(0)
                 y = y.to('cuda')
+
+                if REG:
+                    x_prime = data[2]
+                    x_prime = x_prime.to('cuda')
+                    
+                    if INPUT_GRAD:
+                        x.requires_grad = True
                                         
                 optimizer.zero_grad()
 
                 # forward
-                with torch.set_grad_enabled(phase == 'train'):
+                with torch.set_grad_enabled(phase == 'train' or INPUT_GRAD):
                     pred = model(x)
-                    loss = metric_loss(pred, y)
-                     
+                    loss_main = metric_loss(pred, y)
+                    
+                    if mode == 'rrr-tune':
+                        loss_reg = rrr_loss(x, x_prime, torch.sigmoid(pred))
+                        loss = loss_main + mode_param * loss_reg
+                    else:
+                        loss = loss_main
+                    
                     # backward
                     if phase == 'train':
                         loss.backward()
@@ -119,14 +152,20 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
 
                 # statistics
                 running_loss += loss.item() * batch_size
+                if REG:
+                    running_loss_reg += loss_reg.item() * batch_size
                 running_counts += batch_size
                 running_acc.append(metric_acc_batch(pred, y))
 
             epoch_loss = running_loss / running_counts
+            if REG:
+                epoch_loss_reg = running_loss_reg / running_counts
             epoch_acc_all = metric_acc_agg(counts_list = running_acc)
             epoch_acc = epoch_acc_all[select_metric_index]
             
             loss_history[phase].append(epoch_loss)
+            if REG:
+                loss_history_reg[phase].append(epoch_loss_reg)
             acc_history[phase].append(epoch_acc_all)
             
             # check for decay objective progress
@@ -161,12 +200,15 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
         metrics_num = len(acc_history['val'][0])
         metrics_names = metric_acc_agg()
         
-        fig = plt.figure(figsize=(5, (1 + metrics_num) * 5))
+        num_plots = 1 + 1 * REG + metrics_num
+        count = 1
+        
+        fig = plt.figure(figsize=(5, num_plots * 5))
         fig.subplots_adjust(hspace=0.6, wspace=0.6)
         
         x = [i for i in range(time + 1)]
     
-        plt.subplot(1 + metrics_num, 1, 1)
+        plt.subplot(num_plots, 1, count)
         plt.scatter(x, loss_history['train'], label = 'Train')
         plt.scatter(x, loss_history['val'], label = 'Val')
         if decay_metric == 'loss':
@@ -175,12 +217,27 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
         if select_metric == 'loss':
             for t in select_history:
                 plt.axvline(t, color = 'green', linestyle = '--')
-        plt.ylabel('Loss')
+        plt.ylabel('Loss - Total')
         plt.legend()
+        count += 1
+        
+        if REG:
+            plt.subplot(num_plots, 1, count)
+            plt.scatter(x, loss_history_reg['train'], label = 'Train')
+            plt.scatter(x, loss_history_reg['val'], label = 'Val')
+            if decay_metric == 'loss':
+                for t in decay_history:
+                    plt.axvline(t, color = 'black', linestyle = '--')
+            if select_metric == 'loss':
+                for t in select_history:
+                    plt.axvline(t, color = 'green', linestyle = '--')
+            plt.ylabel('Loss - Regularizer')
+            plt.legend()
+            count += 1
         
         for i in range(metrics_num):
         
-            plt.subplot(1 + metrics_num, 1, 2 + i)
+            plt.subplot(num_plots, 1, count)
             plt.scatter(x, [v[i] for v in acc_history['train']], label = 'Train')
             plt.scatter(x, [v[i] for v in acc_history['val']], label = 'Val')
             if i == select_metric_index:
@@ -193,7 +250,6 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
             plt.xlabel('Time')
             plt.ylabel(metrics_names[i])
             plt.legend()
-            
+            count += 1
         plt.savefig('{}.png'.format(name))
         plt.close()
-        
