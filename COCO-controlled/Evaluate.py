@@ -13,12 +13,9 @@ sys.path.insert(0, '../COCO/')
 from Dataset import ImageDataset, my_dataloader
 from ModelWrapper import ModelWrapper
 
-def evaluate(mode, main, spurious, p_correct, trial):
+def evaluate(model_dir, data_dir):
 
-    base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
-    
     # Load the images for this pair
-    data_dir = '{}/{}-{}/val'.format(get_data_dir(), main, spurious)
     with open('{}/splits.p'.format(data_dir), 'rb') as f:
         splits = pickle.load(f)
     
@@ -30,7 +27,7 @@ def evaluate(mode, main, spurious, p_correct, trial):
     model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
     model.cuda()
     
-    model.load_state_dict(torch.load('{}/model.pt'.format(base)))
+    model.load_state_dict(torch.load('{}/model.pt'.format(model_dir)))
     model.eval()
     
     wrapper = ModelWrapper(model)
@@ -53,7 +50,7 @@ def evaluate(mode, main, spurious, p_correct, trial):
     avg /= 4
     out['average'] = avg
     
-    with open('{}/results.json'.format(base), 'w') as f:
+    with open('{}/results.json'.format(model_dir), 'w') as f:
         json.dump(out, f)
 
 if __name__ == '__main__':
@@ -65,4 +62,6 @@ if __name__ == '__main__':
     trials = sys.argv[5].split(',')
 
     for trial in trials:
-        evaluate(mode, main, spurious, p_correct, trial)
+        model_dir = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
+        data_dir = '{}/{}-{}/val'.format(get_data_dir(), main, spurious)
+        evaluate(model_dir, data_dir)

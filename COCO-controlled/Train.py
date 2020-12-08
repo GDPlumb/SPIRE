@@ -41,9 +41,13 @@ def metric_acc_agg(counts_list = None):
             
         return [correct / total]
         
-def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5, n = 2000):
+def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5, n = 2000,
+            mp_override = None, lr_override = None,
+            base = None):
 
-    base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
+    # Setup the output directory
+    if base is None:
+        base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
     os.system('rm -rf {}'.format(base))
     Path(base).mkdir(parents = True, exist_ok = True)
 
@@ -74,7 +78,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         print('Error: Bad Distribution Setup')
         print(num_both, num_just_main, num_just_spurious, num_neither)
         sys.exit(0)
-    
+
     both_final = both[:num_both]
     just_main_final = just_main[:num_just_main]
     just_spurious_final = just_spurious[:num_just_spurious]
@@ -90,8 +94,8 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     for id in neither_final:
         ids.append(id)
         
-    # Train/validation split for the ids
-    # By splitting on Image ID, we ensure all counterfactuals are in the same fold
+    # Get the ids of the training images for this experiment
+    # By splitting on Image ID, we ensure all counterfactual version of an image are in the same fold
     ids_train, ids_val = train_test_split(ids, test_size = 0.1)
 
     # Load the the data specified by mode for each Image ID
@@ -131,6 +135,14 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         print('Error: Unrecognized mode')
         sys.exit(0)
         
+    # Apply over-rides
+    if mp_override is not None:
+        mode_param = mp_override
+        
+    if lr_override is not None:
+        lr = lr_override
+    
+    # Setup the data loaders
     files_train, labels_train = load_data_random(ids_train, images, splits, names)
     files_val, labels_val = load_data_random(ids_val, images, splits, names)
 

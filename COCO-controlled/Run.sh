@@ -6,7 +6,7 @@ SEARCH=true
 PLOT=true
 
 # 'bottle person' 'bowl person' 'car person' 'chair person' 'cup person' 'dining+table person' 'bottle cup' 'bowl cup' 'chair cup' 'bottle dining+table' 'bowl dining+table' 'chair dining+table' 'cup dining+table'
-for i in 'bowl person' 'car person' 'chair person' 'cup person' 'dining+table person'
+for i in 'bottle person'
 do
     set -- $i
     main=$1
@@ -22,7 +22,7 @@ do
     ./SetupPair.sh $main $spurious
     fi
         
-    for mode in 'initial-transfer'
+    for mode in 'initial-tune'
     do
         echo ''
         echo $mode

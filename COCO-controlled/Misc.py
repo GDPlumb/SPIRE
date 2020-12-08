@@ -6,6 +6,10 @@ sys.path.insert(0, '../COCO/')
 from Dataset import ImageDataset, my_dataloader
 from ModelWrapper import ModelWrapper
 
+###
+# Helpers for working with COCO
+###
+
 def get_pair(coco, main, spurious):
     
     main = main.replace('+', ' ')
@@ -33,6 +37,10 @@ def get_pair(coco, main, spurious):
 def id_from_path(path):
     return path.split('/')[-1].split('.')[0].lstrip('0')
     
+###
+# Helpers for setting up training data
+###
+
 def load_data(ids, images, names):
     files = []
     labels = []
