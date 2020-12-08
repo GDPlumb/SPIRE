@@ -7,8 +7,10 @@ import sys
 import torch
 import torch.optim as optim
 
-from RRR import rrr_loss
+from CDEP import cdep_loss
 from GS import gs_loss
+from RRR import rrr_loss
+
     
 def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg,
                 lr_init = 0.001, decay_phase = 'train', decay_metric = 'loss', decay_min = 0.001, decay_delay = 3, decay_rate = 0.1, decay_max = 2, # Learning rate configuration
@@ -16,7 +18,7 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                 mode = None, mode_param = None, feature_hook = None,
                 name = 'history'):
                 
-    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune']:
+    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']:
         REG = True
     else:
         REG = False
@@ -158,6 +160,9 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                         loss = loss_main + mode_param * loss_reg
                     elif mode == 'gs-tune':
                         loss_reg = gs_loss(x, x_prime, torch.sigmoid(pred))
+                        loss = loss_main + mode_param * loss_reg
+                    elif mode in ['cdep-transfer', 'cdep-tune']:
+                        loss_reg = cdep_loss(x, x_prime, model)
                         loss = loss_main + mode_param * loss_reg
                     else:
                         loss = loss_main

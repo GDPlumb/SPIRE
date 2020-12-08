@@ -137,7 +137,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
             sys.exit(0)
             
         lr = 0.0001
-    elif mode in ['rrr-tune']:
+    elif mode in ['rrr-tune', 'cdep-transfer', 'cdep-tune']:
         name_1 = 'orig'
         name_2 = 'spurious-pixel'
     elif mode in ['gs-transfer', 'gs-tune']:
@@ -158,7 +158,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         batch_size = bs_override
     
     # Setup the data loaders
-    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune']:
+    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']:
         files_1_train, labels_1_train, files_2_train = load_data_paired(ids_train, images, name_1, name_2)
         files_1_val, labels_1_val, files_2_val = load_data_paired(ids_val, images, name_1, name_2)
         
@@ -189,7 +189,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
         optim_params = model.parameters()
-    elif mode == 'gs-transfer':
+    elif mode in ['gs-transfer', 'cdep-transfer']:
         # Load initial-tune
         model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
@@ -200,9 +200,10 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         model.classifier[6].bias.requires_grad = True
         optim_params = model.classifier[6].parameters()
         # Setup the feature hook for getting the representations
-        feature_hook = Features(requires_grad = True)
-        handle = list(model.modules())[39].register_forward_hook(feature_hook) # For VGG16, this gets the representation just before the Dropout layer
-    elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune']:
+        if mode == 'gs-tranfser':
+            feature_hook = Features(requires_grad = True)
+            handle = list(model.modules())[39].register_forward_hook(feature_hook) # For VGG16, this gets the representation just before the Dropout layer
+    elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-tune']:
         model.classifier[6] = torch.nn.Linear(in_features = 4096, out_features = 1)
         model.load_state_dict(torch.load('./Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial)))
         optim_params = model.parameters()

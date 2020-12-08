@@ -4,10 +4,11 @@ import json
 import numpy as np
 import os
 from subprocess import Popen
+import sys
 import time
 
 # Hyper Parmaeter Search setup
-mode = 'gs-tune'
+mode = sys.argv[1]
 n_trials = 4
 
 print()
@@ -29,15 +30,17 @@ if 'tune' in mode.split('-'):
 elif 'transfer' in mode.split('-'):
     lr_list = [0.001]
 
-if mode in ['rrr-tune', 'gs-tune']:
+if mode in ['cdep-tune']:
+    config['batch_size'] = 8
+elif mode in ['rrr-tune', 'gs-tune']:
     config['batch_size'] = 16
-elif mode in []:
+elif mode in ['cdep-transfer']:
     config['batch_size'] = 32
 else:
     config['batch_size'] = 64
 
-if mode in ['rrr-tune', 'gs-transfer', 'gs-tune']:
-    mp_list = [10.0]
+if mode in ['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']:
+    mp_list = [1.0]
 else:
     mp_list = [0]
 
