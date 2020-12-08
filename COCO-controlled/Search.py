@@ -9,19 +9,14 @@ import torchvision.models as models
 from Config import get_data_dir
 from Misc import id_from_path, load_data
 
-sys.path.insert(0, '../COCO/')
+sys.path.insert(0, '../Commmon/')
 from Dataset import ImageDataset, my_dataloader
 from ModelWrapper import ModelWrapper
-
-sys.path.insert(0, '../Common/')
 from ResNet import get_model
 
-def search(mode, main, spurious, p_correct, trial):
+def search(model_dir, data_dir):
 
-    base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
-    
     # Load the images for this pair
-    data_dir = '{}/{}-{}/val'.format(get_data_dir(), main, spurious)
     with open('{}/splits.p'.format(data_dir), 'rb') as f:
         splits = pickle.load(f)
     
@@ -29,7 +24,7 @@ def search(mode, main, spurious, p_correct, trial):
         images = pickle.load(f)
         
     # Setup the model
-    model = get_model(mode = 'eval', parent = '{}/model.pt'.format(base))
+    model = get_model(mode = 'eval', parent = '{}/model.pt'.format(model_dir))
     model.cuda()
     model.eval()
     
@@ -89,7 +84,7 @@ def search(mode, main, spurious, p_correct, trial):
         map_name = get_map(wrapper, images, ids, name)
         metrics['{} and {}'.format('neither', name)] = get_diff(map_orig, map_name)
         
-    with open('{}/search.json'.format(base), 'w') as f:
+    with open('{}/search.json'.format(model_dir), 'w') as f:
         json.dump(metrics, f)
 
 if __name__ == '__main__':
@@ -101,4 +96,6 @@ if __name__ == '__main__':
     trials = sys.argv[5].split(',')
 
     for trial in trials:
-        search(mode, main, spurious, p_correct, trial)
+        model_dir = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
+        data_dir = '{}/{}-{}/val'.format(get_data_dir(), main, spurious)
+        search(model_dir, data_dir)

@@ -8,7 +8,7 @@ import sys
 from Config import get_data_dir, get_random_seed
 from Misc import get_pair, id_from_path
 
-sys.path.insert(0, '../COCO/')
+sys.path.insert(0, '../Common/')
 from COCOWrapper import COCOWrapper
 from FormatData import mask_images_parallel
 

@@ -2,7 +2,7 @@
 import numpy as np
 import sys
 
-sys.path.insert(0, '../COCO/')
+sys.path.insert(0, '../Common/')
 from Dataset import ImageDataset, my_dataloader
 from ModelWrapper import ModelWrapper
 

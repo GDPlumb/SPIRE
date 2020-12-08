@@ -11,7 +11,7 @@ ec_source = '/home/gregory/Desktop/edge-connect'
 sys.path.insert(0, ec_source)
 import src.edge_connect
 
-sys.path.insert(0, '../COCO/')
+sys.path.insert(0, '../Common/')
 from FormatData_InPainter import get_coords, get_mask, paint
 
 if __name__ == '__main__':

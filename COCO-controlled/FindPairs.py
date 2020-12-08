@@ -3,8 +3,11 @@ import sys
 
 from Misc import get_pair
 
-sys.path.insert(0, '../COCO/')
+sys.path.insert(0, '../Common/')
 from COCOWrapper import COCOWrapper
+
+import sys
+sys.stdout = open('FindPairs.txt', 'w')
 
 threshold = 100
 

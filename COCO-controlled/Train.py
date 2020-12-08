@@ -11,13 +11,11 @@ import torchvision.models as models
 from Config import get_data_dir
 from Misc import load_data_random, load_data_paired
 
-sys.path.insert(0, '../COCO/')
-from Dataset import ImageDataset, ImageDataset_Paired, my_dataloader
-
 sys.path.insert(0, '../Common/')
+from Dataset import ImageDataset, ImageDataset_Paired, my_dataloader
 from Features import Features
 from ResNet import get_model
-from Train_info import train_model
+from TrainModel import train_model
 
 def metric_acc_batch(y_hat, y):
     y_hat = y_hat.cpu().data.numpy()
@@ -45,15 +43,15 @@ def metric_acc_agg(counts_list = None):
         
 def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5, n = 2000,
             mp_override = None, lr_override = None, bs_override = None,
-            base = None):
+            model_dir = None):
 
     # Setup the output directory
-    if base is None:
-        base = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
-    os.system('rm -rf {}'.format(base))
-    Path(base).mkdir(parents = True, exist_ok = True)
+    if model_dir is None:
+        model_dir = './Models/{}-{}/{}/{}/trial{}'.format(main, spurious, p_correct, mode, trial)
+    os.system('rm -rf {}'.format(model_dir))
+    Path(model_dir).mkdir(parents = True, exist_ok = True)
 
-    name = '{}/model'.format(base)
+    name = '{}/model'.format(model_dir)
     
     # Load the chosen images for this pair
     data_dir = '{}/{}-{}/train'.format(get_data_dir(), main, spurious)

@@ -9,11 +9,9 @@ import torchvision.models as models
 from Config import get_data_dir
 from Misc import load_data
 
-sys.path.insert(0, '../COCO/')
+sys.path.insert(0, '../Common/')
 from Dataset import ImageDataset, my_dataloader
 from ModelWrapper import ModelWrapper
-
-sys.path.insert(0, '../Common/')
 from ResNet import get_model
 
 def evaluate(model_dir, data_dir):
