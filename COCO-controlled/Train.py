@@ -116,7 +116,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         elif mode == 'initial-tune':
             lr = 0.0001
         
-    elif mode in ['minimal-tune']:
+    elif mode in ['minimal-transfer', 'minimal-tune']:
         if p_correct > 0.5:
             p_sample = 2 - 1 / p_correct
             names = {}
@@ -134,8 +134,12 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         else:
             print('Error: bad p_correct for this mode')
             sys.exit(0)
-            
-        lr = 0.0001
+        
+        if mode == 'minimal-transfer':
+            lr = None
+        elif mode == 'minimal-tune':
+            lr = 0.0001
+        
     elif mode in ['rrr-tune', 'cdep-transfer', 'cdep-tune']:
         name_1 = 'orig'
         name_2 = 'spurious-pixel'
@@ -181,10 +185,10 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained')
     elif mode == 'initial-tune':
         model, optim_params = get_model(mode = 'tune', parent = './Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial))
-    elif mode in ['gs-transfer', 'cdep-transfer']:
+    elif mode in ['minimal-transfer', 'gs-transfer', 'cdep-transfer']:
         model, optim_params = get_model(mode = 'transfer', parent = './Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial))
         # Setup the feature hook for getting the representations
-        if mode == 'gs-tranfser':
+        if mode == 'gs-transfer':
             feature_hook = Features(requires_grad = True)
             handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
     elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-tune']:
