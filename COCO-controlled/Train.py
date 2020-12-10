@@ -99,6 +99,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     ids_train, ids_val = train_test_split(ids, test_size = 0.1)
     
     # Load defaults
+    lr = None # This breaks train_model() for configs that aren't setup based on HPS
     mode_param = 0.0
     batch_size = 64
     feature_hook = None
@@ -135,17 +136,27 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
             print('Error: bad p_correct for this mode')
             sys.exit(0)
         
-        if mode == 'minimal-transfer':
-            lr = None
-        elif mode == 'minimal-tune':
+        if mode == 'minimal-tune':
             lr = 0.0001
         
     elif mode in ['rrr-tune', 'cdep-transfer', 'cdep-tune']:
         name_1 = 'orig'
         name_2 = 'spurious-pixel'
+        
+        if mode == 'rrr-tune':
+            lr = 0.0003
+            mode_param = 0.1
+        elif mode == 'cdep-transfer':
+            lr = 0.003
+            mode_param = 1.0
+        
     elif mode in ['gs-transfer', 'gs-tune']:
         name_1 = 'orig'
         name_2 = 'main-pixel-paint'
+        
+        if mode == 'gs-tune':
+            lr = 0.00003
+            mode_param = 1.0
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)

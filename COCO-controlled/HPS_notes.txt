@@ -1,0 +1,22 @@
+
+Strategy:  'minimal'
+-  Prefers 'tune'
+-  LR: 0.0001
+
+Strategy: 'rrr'
+-  Requires 'tune'
+-  MP: 0.1
+-  LR: 0.0003
+-  Accuracy improves consistently from epoch to epoch
+
+Strategy:  'gs'
+-  Prefers 'tune'
+-  MP:  1.0
+-  LR:  0.00003
+-  Accuracy improves consistently from epoch to epoch
+
+Strategy: 'cdep'
+-  Prefers 'transfer'
+-  MP:  1.0
+-  LR:  0.003
+-  Accuracy improves consistently from epoch to epoch for 3 out of 4 trials
