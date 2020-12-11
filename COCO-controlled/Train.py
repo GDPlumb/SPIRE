@@ -99,7 +99,13 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     ids_train, ids_val = train_test_split(ids, test_size = 0.1)
     
     # Load defaults
-    lr = None # This breaks train_model() for configs that aren't setup based on HPS
+    if 'transfer' in mode.split('-'):
+        lr = 0.001
+    elif 'tune' in mode.split('-'):
+        lr = 0.0001
+    else:
+        lr = None
+    
     mode_param = 0.0
     batch_size = 64
     feature_hook = None
@@ -111,11 +117,6 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         names['just_main'] = {'orig': 1.0}
         names['just_spurious'] = {'orig': 1.0}
         names['neither'] = {'orig': 1.0}
-        
-        if mode == 'initial-transfer':
-            lr = 0.001
-        elif mode == 'initial-tune':
-            lr = 0.0001
         
     elif mode in ['minimal-transfer', 'minimal-tune']:
         if p_correct > 0.5:
@@ -136,27 +137,27 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
             print('Error: bad p_correct for this mode')
             sys.exit(0)
         
-        if mode == 'minimal-tune':
-            lr = 0.0001
-        
     elif mode in ['rrr-tune', 'cdep-transfer', 'cdep-tune']:
         name_1 = 'orig'
         name_2 = 'spurious-pixel'
         
         if mode == 'rrr-tune':
-            lr = 0.0003
-            mode_param = 0.1
+            mode_param = 10.0
         elif mode == 'cdep-transfer':
-            lr = 0.003
             mode_param = 1.0
-        
+        elif mode == 'cdep-tune':
+            mode_param = None # Not chosen by HPS
+            batch_size = 32 # This method/implementation uses more GPU memory
+                
     elif mode in ['gs-transfer', 'gs-tune']:
         name_1 = 'orig'
         name_2 = 'main-pixel-paint'
         
-        if mode == 'gs-tune':
-            lr = 0.00003
-            mode_param = 1.0
+        if mode == 'gs-transfer':
+            mode_param = None # Not chosen by HPS
+        elif mode == 'gs-tune':
+            mode_param = 10.0
+        
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
@@ -192,18 +193,19 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     dataloaders['val'] = my_dataloader(datasets['val'], batch_size = batch_size)
     
     # Setup the model and optimization process
+    parent_transfer = './Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)
     if mode == 'initial-transfer':
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained')
     elif mode == 'initial-tune':
-        model, optim_params = get_model(mode = 'tune', parent = './Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial))
+        model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
     elif mode in ['minimal-transfer', 'gs-transfer', 'cdep-transfer']:
-        model, optim_params = get_model(mode = 'transfer', parent = './Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial))
+        model, optim_params = get_model(mode = 'transfer', parent = parent_transfer)
         # Setup the feature hook for getting the representations
-        if mode == 'gs-transfer':
+        if mode in ['gs-transfer']:
             feature_hook = Features(requires_grad = True)
             handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
     elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-tune']:
-        model, optim_params = get_model(mode = 'tune', parent = './Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial))
+        model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
     else:
         print('Train.py: Could not determine trainable parameters')
         sys.exit(0)
@@ -213,7 +215,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     metric_loss = torch.nn.BCEWithLogitsLoss()
     
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
-                        lr_init = lr, select_cutoff = 5, decay_max = 1,
+                        lr_init = lr, select_cutoff = 3, decay_max = 1,
                         mode = mode, mode_param = mode_param, feature_hook = feature_hook)
     torch.save(model.state_dict(), '{}.pt'.format(name))
     

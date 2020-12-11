@@ -1,22 +1,23 @@
+General Comment:  
+-  The HPS was run with a more aggressive stopping condition to get results faster
+-  Given that these methods tend to improve consistently for a few epochs and then stop improving at all, this shouldn't change the results much
 
-Strategy:  'minimal'
--  Prefers 'tune'
--  LR: 0.0001
+rrr-tune
+-  The best accuracy was with a weight of 0.1, but that failed to meaningfully changed the regularizer objective
+-  So we are going to use the next best weight of 10 which was only slightly less accurate
 
-Strategy: 'rrr'
--  Requires 'tune'
--  MP: 0.1
--  LR: 0.0003
--  Accuracy improves consistently from epoch to epoch
+gs-transfer
+-  The best accuracy was with a weight of 1.0
+-  This did change the regularizer objective but I'm not sure why train/val are always moving in the opposite direction
 
-Strategy:  'gs'
--  Prefers 'tune'
--  MP:  1.0
--  LR:  0.00003
--  Accuracy improves consistently from epoch to epoch
+gs-tune
+-  Same results as gs-transfer but better accuracy
+-  After running bottle-person, it turned out that this configuration behaved almost exactly like initial-tune in terms of both the accuracy and the search results
+  -  So we are going to use a a weight of 10
 
-Strategy: 'cdep'
--  Prefers 'transfer'
--  MP:  1.0
--  LR:  0.003
--  Accuracy improves consistently from epoch to epoch for 3 out of 4 trials
+cdep-transfer
+-  The best accuracy was with a weight of 1.0
+-  Weights of 10.0 and above caused the model to fail to learn
+
+cdep-tune
+-  This performs worse than cdep-transfer

@@ -8,9 +8,9 @@ import sys
 
 main = 'bottle'
 spurious = 'person'
-p_correct = 0.9
+p_correct = 0.95
 
-modes =['minimal-transfer', 'minimal-tune', 'rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']
+modes =['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']
 trials = [0, 1, 2, 3]
 num_gpus = 4
 
@@ -23,9 +23,9 @@ def get_mp(mode):
     
 def get_lr(mode):
     if 'tune' in mode.split('-'):
-        lr_list = [0.0001, 0.0003, 0.00003]
+        lr_list = [0.0001]
     elif 'transfer' in mode.split('-'):
-        lr_list = [0.001, 0.003, 0.0003]
+        lr_list = [0.001]
     return lr_list
     
 def get_bs(mode):
@@ -97,4 +97,4 @@ for mode in modes:
                     all_data.append(data['average'])
 
             with open('{}/AverageAccuracy.txt'.format(dir), 'w') as f:
-                print('Mean:', np.mean(all_data), ' & STD:', np.std(all_data), file = f)
+                print('Mean:', np.mean(all_data), ' & STD:', np.std(all_data), ' & Median:', np.median(all_data), file = f)

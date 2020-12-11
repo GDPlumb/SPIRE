@@ -217,8 +217,7 @@ if __name__ == '__main__':
     
     try:
         if sys.argv[3] == 'custom':
-#            plot(main, spurious, subdir = 'comp-aug', modes_specified = ['spurious-paint-tune', 'spurious-tune', 'main-paint-tune', 'main-tune', 'both-paint-tune', 'both-tune'])
-#            plot(main, spurious, subdir = 'comp-train', modes_specified = ['initial-transfer', 'initial-tune'])
-            plot(main, spurious, subdir = 'main', modes_specified = ['initial-tune', 'careful-tune'])
+            #plot(main, spurious, subdir = 'comp-train', modes_specified = ['initial-transfer', 'initial-tune'])
+            plot(main, spurious, subdir = 'main', modes_specified = ['initial-tune', 'minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-transfer'])
     except IndexError:
         pass
