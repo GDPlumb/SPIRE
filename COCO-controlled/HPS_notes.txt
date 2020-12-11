@@ -1,23 +1,22 @@
 General Comment:  
 -  The HPS was run with a more aggressive stopping condition to get results faster
--  Given that these methods tend to improve consistently for a few epochs and then stop improving at all, this shouldn't change the results much
+-  Given that these methods tend to improve consistently for a few epochs and then stop improving at all, this shouldn't have changed the results much
+-  The final results are run with a less aggressive stopping condition
 
-rrr-tune
--  The best accuracy was with a weight of 0.1, but that failed to meaningfully changed the regularizer objective
--  So we are going to use the next best weight of 10 which was only slightly less accurate
+RRR
+-  This method requires that the model be fine tuned
+-  While the best accuracy result was from a weight of 0.1, models trained with this weight failed to meaningful change the regularizer's objective
+-  As a result, we will use the next best weight of 10
 
-gs-transfer
--  The best accuracy was with a weight of 1.0
--  This did change the regularizer objective but I'm not sure why train/val are always moving in the opposite direction
+GS
+-  The best accuracy was with a weight of 1.0 and fine-tuning
+-  However, when we ran this for bottle-person, this model behaved almost identically to initial-tune in terms of both the accuracy and the search results
+-  Two ways to make the regularizer more effective would be to switch to transfer learning or to increase the regularization weight
+  -  Running bottle-person again with a weight of 10 with fine tuning or a weight of 1 with transfer learning yielded similar patterns
+  -  Both of these settings slightly decreased accuracy while showing some signs of a change in model reasoning via the Search results
+  -  However, since these model's are still not as accurate as the baseline, we will increase the regularization again to showcase the regularization's ability to change model reasoning
+-  As a result, we will use transfer learning with a weight of 10 which showed consistent signs of changing the model's reasoning at the expense some accuracy
 
-gs-tune
--  Same results as gs-transfer but better accuracy
--  After running bottle-person, it turned out that this configuration behaved almost exactly like initial-tune in terms of both the accuracy and the search results
-  -  So we are going to use a a weight of 10
-
-cdep-transfer
--  The best accuracy was with a weight of 1.0
--  Weights of 10.0 and above caused the model to fail to learn
-
-cdep-tune
--  This performs worse than cdep-transfer
+CDEP
+-  The best accuracy result was with a weight of 1 and transfer learning, so this is what we will use for our experiments
+-  Note: weights of 10 and above caused the model to fail to learn

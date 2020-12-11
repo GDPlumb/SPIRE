@@ -145,8 +145,8 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
             mode_param = 10.0
         elif mode == 'cdep-transfer':
             mode_param = 1.0
-        elif mode == 'cdep-tune':
-            mode_param = None # Not chosen by HPS
+        elif mode == 'cdep-tune': # Not used in final experiments
+            mode_param = 0.1
             batch_size = 32 # This method/implementation uses more GPU memory
                 
     elif mode in ['gs-transfer', 'gs-tune']:
@@ -154,8 +154,8 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         name_2 = 'main-pixel-paint'
         
         if mode == 'gs-transfer':
-            mode_param = None # Not chosen by HPS
-        elif mode == 'gs-tune':
+            mode_param = 10.0
+        elif mode == 'gs-tune': # Not used in final experiments, but used for the comparisons shown.  See HPS_notes.txt
             mode_param = 10.0
         
     else:
@@ -215,7 +215,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     metric_loss = torch.nn.BCEWithLogitsLoss()
     
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
-                        lr_init = lr, select_cutoff = 3, decay_max = 1,
+                        lr_init = lr, select_cutoff = 5, decay_max = 1,
                         mode = mode, mode_param = mode_param, feature_hook = feature_hook)
     torch.save(model.state_dict(), '{}.pt'.format(name))
     

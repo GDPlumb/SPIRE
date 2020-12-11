@@ -111,4 +111,4 @@ if __name__ == '__main__':
             except FileNotFoundError:
                 pass
     
-    run(results, ['0.025', '0.05', '0.1', '0.2', '0.4', '0.6', '0.8', '0.9', '0.95', '0.975'], ['minimal-tune', 'cdep-transfer'], 'initial-tune', title = 'main.png')
+    run(results, ['0.025', '0.05', '0.1', '0.2', '0.4', '0.6', '0.8', '0.9', '0.95', '0.975'], ['minimal-tune', 'rrr-tune', 'gs-transfer', 'cdep-transfer'], 'initial-tune', title = 'main.png')
