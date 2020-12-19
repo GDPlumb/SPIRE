@@ -1,0 +1,4 @@
+How to run these experiments?
+1.  Use the last two cells of FindTuples.ipynb to find a tuple to study and to create the image splits for it
+2.  Use SetupTuple.sh to create the counterfactual images for that tuple
+3.  Use Results_main.py to train and evaluate models
