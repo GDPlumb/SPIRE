@@ -8,27 +8,6 @@ from pycocotools.coco import COCO
 import random
 import sys
 
-def format_standard(root, mode, year):
-
-    coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
-    images = coco.loadImgs(coco.getImgIds())
-
-    filenames = []
-    labels = []
-    for img_obj in images:
-        filename = '{}/{}{}/{}'.format(root, mode, year, img_obj['file_name'])
-
-        anns = coco.loadAnns(coco.getAnnIds(img_obj['id'], iscrowd = None))
-        label = np.zeros((91), dtype = np.float32)  # Each 'label' vector is large enough for easy indexing, but this means it contains unused indices
-        for ann in anns:
-            label[ann['category_id']] = 1.0
-
-        filenames.append(filename)
-        labels.append(label)
-        
-    with open('{}/{}{}-info.p'.format(root, mode, year), 'wb') as f:
-        pickle.dump([filenames, labels], f)
-
 def get_mask(anns, mask_classes, coco, mode = 'box', unmask = True, unmask_classes = None):
 
     # Find the mask for each object we want to remove
@@ -104,7 +83,7 @@ def mask_images(images, coco, base_location, save_location, chosen_id = None, mo
         img = Image.open('{}/{}'.format(base_location, base_filename)).convert('RGB')
         
         filename = '{}/{}'.format(save_location, base_filename)
-        label = np.zeros((91), dtype = np.float32)
+        label = np.zeros((91)) #Note:  this used to set the data type, COCO-controlled and COCO-nuanced were run with that
 
         anns = coco.loadAnns(coco.getAnnIds(imgIds = img_obj['id']))
         
@@ -193,49 +172,3 @@ def format_random(root, mode, year, mask_mode = 'box', unmask = True, use_png = 
 
     # Run
     mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = mask_mode, unmask = unmask, use_png = use_png)
-
-def format_spurious(root, mode, year, spurious, mask_mode = 'box', unmask = True, use_png = False, coco = None, use_tmp = False):
-
-    # Prep the data directory
-    base_location = '{}/{}{}'.format(root, mode, year)
-    if use_tmp:
-        save_location = '{}/tmp'.format(root)
-    else:
-        save_location = '{}-{}'.format(base_location, spurious)
-        if mask_mode == 'pixel':
-            save_location = '{}-pixel'.format(save_location)
-    os.system('rm -rf {}'.format(save_location))
-    os.system('mkdir {}'.format(save_location))
-    
-    # Create a copy of the data where each image has a random object category masked
-    if coco is None:
-        coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
-    spurious_id = coco.getCatIds(catNms = [spurious])[0]
-    images = coco.loadImgs(coco.getImgIds(catIds = spurious_id))
-    
-    # Run
-    mask_images_parallel(images, coco, base_location, save_location, chosen_id = spurious_id, mode = mask_mode, unmask = unmask, use_png = use_png)
-
-if __name__ == '__main__':
-
-    print()
-    print(sys.argv)
-    print()
-    
-    root = sys.argv[1]
-    mode = sys.argv[2]
-    year = sys.argv[3]
-    step = sys.argv[4]
-
-    if step == 'standard':
-        format_standard(root, mode, year)
-    elif step == 'random':
-        format_random(root, mode, year)
-    elif step == 'random-pixel':
-        format_random(root, mode, year, mask_mode = 'pixel', use_png = True)
-    elif step == 'spurious':
-        spurious = sys.argv[5]
-        format_spurious(root, mode, year, spurious)
-    elif step == 'spurious-pixel':
-        spurious = sys.argv[5]
-        format_spurious(root, mode, year, spurious, mask_mode = 'pixel', use_png = True)

@@ -1,155 +1,63 @@
 
 import json
-from multiprocessing import Pool
-import numpy as np
-import os
-import torch
-import torchvision.models as models
+import sys
 
-from COCOWrapper import COCOWrapper
-from Dataset import merge_sources, unpack_sources, ImageDataset, my_dataloader
-from FormatData import format_spurious
+sys.path.insert(0, '../Common/')
 from ModelWrapper import ModelWrapper
+from ResNet import get_model
+from SearchHelper import get_map, get_diff
 
-def make_key(name_primary, name_spurious):
-    return '{}-{}'.format(name_primary, name_spurious).replace(' ', '')
+def search(model_dir, data_dir, coco):
 
-def id_from_path(path):
-    return path.split('/')[-1].split('.')[0].lstrip('0')
-
-def class_matrix(filenames, dataset_dict, pred_dict, index_primary):
-    counts = [0,0,0,0] #[TP, FP, FN, TN]
-    for name in filenames:
-        label = dataset_dict[name][index_primary]
-        pred = pred_dict[name][index_primary]
-
-        if pred == 1:
-            if label == 1:
-                counts[0] += 1
-            else:
-                counts[1] += 1
-        else:
-            if label == 1:
-                counts[2] += 1
-            else:
-                counts[3] += 1
-                
-    return counts
-
-if __name__ == "__main__":
-
-    os.system('rm -rf Search')
-    os.system('mkdir Search')
+    # Setup the data
+    with open('./FindSCs.json', 'r') as f:
+        pairs = json.load(f)
     
-    # Experimental Configuration
-    root = '/home/gregory/Datasets/COCO'
-    mode = 'train'
-    year = '2017'
-    base = '{}/{}{}/'.format(root, mode, year)
-    
-    # Setup COCOWrapper
-    coco = COCOWrapper(root = root, mode = mode, year = year)
-
-    names = []
-    for cat in coco.cats:
-        names.append(cat['name'])
-    n = len(names)
-
-    # Setup the COCO Dataset
-    file_dict = merge_sources(['{}/{}{}-info.p'.format(root, mode, year)])
-    filenames, labels = unpack_sources(file_dict)
-    dataset = ImageDataset(filenames, labels, get_names = True)
-    dataloader = my_dataloader(dataset)
-    
-    # Load a model to use for the search
-    model = models.mobilenet_v2(pretrained = True)
-    model.classifier[1] = torch.nn.Linear(in_features = 1280, out_features = 91)
-    model.load_state_dict(torch.load('./Models/initial-transfer/model_0.pt'))
+    with open('{}/images.json'.format(data_dir), 'r') as f:
+        images = json.load(f)
+            
+    # Setup the model
+    model = get_model(mode = 'eval', parent = '{}/model.pt'.format(model_dir), out_features = 91)
     model.cuda()
     model.eval()
     
-    print('Predicting Original Dataset')
     wrapper = ModelWrapper(model, get_names = True)
-    # Get the model predictions on the dataset
-    a, b, c = wrapper.predict_dataset(dataloader)
-
-    pred_dict = {}
-    dataset_dict = {}
-    for i in range(len(a)):
-        id = id_from_path(c[i])
-        pred_dict[id] = a[i]
-        dataset_dict[id] = b[i]
     
-    # Get the model predictions on the dataset with the spurious object removed
-    # NOTE:  This is the entire dataset, not just the relevant parts
-    for name_spurious in names:
-        print('Working on: ', name_spurious)
-        index_spurious = coco.get_class_id(name_spurious)
-
-        # Divide the images into two sets, one with the spurious object and one without
-        images_with_spurious = []
-        images_without_spurious = []
-        for i in range(len(dataset.filenames)):
-            filename = id_from_path(dataset.filenames[i])
-            label = dataset.labels[i]
-            if label[index_spurious] == 1:
-                images_with_spurious.append(filename)
-            else:
-                images_without_spurious.append(filename)
+    # Run the Search
+    metrics = {}
+    for pair in pairs:
+        main = pair.split('-')[0]
+        spurious = pair.split('-')[1]
         
-        print('Masking Dataset')
-        # Setup a masked dataset for the images with the spurious object
-        format_spurious(root, mode, year, name_spurious, use_tmp = True, coco = coco.coco)
-        file_dict_spurious = merge_sources(['{}/tmp-info.p'.format(root, mode, year)])
-        filenames_spurious, labels_spurious = unpack_sources(file_dict_spurious)
-        dataset_spurious = ImageDataset(filenames_spurious, labels_spurious, get_names = True)
-        dataloader_spurious = my_dataloader(dataset_spurious)
+        # Get the index that we care about for this pair
+        index = coco.get_class_id(main)
         
-        # Get the model predictions on the images with the spurious object once that object has been removed
-        print('Predicting')
-        a, b, c = wrapper.predict_dataset(dataloader_spurious)
-        pred_without_spurious_dict = {}
-        for i in range(len(a)):
-            id = id_from_path(c[i])
-            pred_without_spurious_dict[id] = a[i]
+        # Get the image splits for this pair
+        with open('{}/splits/{}-{}.json'.format(data_dir, main, spurious), 'r') as f:
+            splits = json.load(f)
+        both = splits['both']
+        just_main = splits['just_main']
+    
+        # Test removing Main/Spurious from Both
+        ids = [id for id in both]
+        map_orig = get_map(wrapper, images, ids, 'orig', index = index)
         
-        # Analyze how the spurious object relates to each possible primary object
-        print('Analyzing')
-        for name_primary in names:
-            index_primary = coco.get_class_id(name_primary)
-            key = make_key(name_primary, name_spurious)
-            results = {}
+        names = []
+        for object in [main, spurious]:
+            for mask in ['box', 'pixel-paint']:
+                names.append('{}-{}-{}'.format(main, object, mask))
+        
+        for name in names:
+            map_name = get_map(wrapper, images, ids, name, index = index)
+            metrics['{}-{}'.format(pair, name)] = get_diff(map_name, map_orig)
             
-            # Evaluate the performance gap of the model
-            m = class_matrix(images_with_spurious, dataset_dict, pred_dict, index_primary)
-            results['matrix_w_spurious'] = m
-            m = class_matrix(images_without_spurious, dataset_dict, pred_dict, index_primary)
-            results['matrix_wo_spurious'] = m
-            
-            # Evaluate the strength of the co-occurence between the two objects
-            images_with_both = []
-            images_with_just_primary = []
-            for i in range(len(dataset.filenames)):
-                filename = id_from_path(dataset.filenames[i])
-                label = dataset.labels[i]
-                if label[index_primary] == 1:
-                    if label[index_spurious] == 1:
-                        images_with_both.append(filename)
-                    else:
-                        images_with_just_primary.append(filename)
-            results['co-occurence'] = [len(images_with_just_primary), len(images_with_both)]
-            
-            # Evaluate how often the heuristic changes this prediction
-            changed = 0
-            count = 0
-            # We only consider images that have both objects and that the model detected the primary object
-            for filename in images_with_both:
-                if pred_dict[filename][index_primary] == 1:
-                    count += 1
-                    if pred_without_spurious_dict[filename][index_primary] == 0:
-                        changed += 1
-            results['heuristic_score'] = [changed, count]
-            
-            
-            with open('Search/{}.json'.format(key), 'w') as f:
-                json.dump(results, f)
+        # Test adding Spurious to Just Main
+        ids = [id for id in just_main]
+        map_orig = get_map(wrapper, images, ids, 'orig', index = index)
+        name = '{}+{}'.format(main, spurious)
+        map_name = get_map(wrapper, images, ids, name, index = index)
+        metrics['{}-{}'.format(pair, name)] = get_diff(map_name, map_orig)
+        
+        # Save the output
+        with open('{}/search.json'.format(model_dir), 'w') as f:
+            json.dump(metrics, f)
