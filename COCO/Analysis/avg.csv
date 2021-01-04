@@ -1,3 +1,6 @@
 Mode,MAP,MAR
-aug-transfer,0.597 (0.008),0.333 (0.008)
-initial-transfer,0.631 (0.006),0.312 (0.007)
+aug-tp-transfer,0.704 (0.006),0.516 (0.003)
+aug-transfer,0.674 (0.008),0.363 (0.009)
+aug-tune,0.685 (0.009),0.49 (0.004)
+initial-transfer,0.691 (0.012),0.373 (0.005)
+initial-tune,0.715 (0.017),0.514 (0.007)

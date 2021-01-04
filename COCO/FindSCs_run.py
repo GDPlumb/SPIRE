@@ -31,7 +31,7 @@ def splits2dist(splits):
     
     return out
     
-def splits2acc(splits, orig_dict, index, min_samples = 20):
+def splits2acc(splits, orig_dict, index, min_samples = 25):
     out = {}
     for name in splits:
         split = splits[name]

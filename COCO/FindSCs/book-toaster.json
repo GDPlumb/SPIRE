@@ -1,1 +1,1 @@
-{"s_given_m": 0.004, "s_given_not_m": 0.002, "both": 0.21739130434782608, "just_main": 0.17781126389150498, "just_spurious": 0.9175257731958762, "neither": 0.9901916442741728, "cf_score": 0.0}
+{"s_given_m": 0.004, "s_given_not_m": 0.002, "both": -1, "just_main": 0.24449048785081937, "just_spurious": 0.9742268041237113, "neither": 0.9904488253917578, "cf_score": 0.0}

@@ -3,9 +3,9 @@ import json
 import os
 from subprocess import Popen
 
-modes = ['aug-transfer']
+modes = ['initial-transfer', 'aug-transfer', 'initial-tune', 'aug-tune', 'aug-tp-transfer']
 trials = [0, 1, 2, 3]
-num_gpus = 2
+num_gpus = 4
 
 # Generate all of the configurations we want to run
 configs = []

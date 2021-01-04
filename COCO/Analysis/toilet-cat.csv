@@ -1,3 +1,0 @@
-Mode,both,just_main,just_spurious,neither,main-box,main-pixel-paint,spurious-box,spurious-pixel-paint,+spurious
-aug-transfer,0.567 (0.043),0.705 (0.036),0.989 (0.002),0.994 (0.001),0.418 (0.021),0.43 (0.019),0.172 (0.019),0.16 (0.022),0.222 (0.002)
-initial-transfer,0.441 (0.032),0.647 (0.022),0.995 (0.001),0.995 (0.0),0.361 (0.026),0.373 (0.026),0.221 (0.028),0.141 (0.007),0.288 (0.02)

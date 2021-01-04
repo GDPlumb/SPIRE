@@ -1,4 +1,5 @@
 
+import glob
 import json
 import numpy as np
 import sys
@@ -56,6 +57,8 @@ def evaluate(model_dir, data_dir, coco, min_samples = 25):
         with open('{}/splits/{}-{}.json'.format(data_dir, main, spurious), 'r') as f:
             splits = json.load(f)
         
+        # Calculate the accuracy for each split
+        splits_acc = {}
         for split_name in splits:
             split = splits[split_name]
             n = len(split)
@@ -72,9 +75,50 @@ def evaluate(model_dir, data_dir, coco, min_samples = 25):
             if len(pred) >= min_samples:
                 v = np.mean(1 * (pred >= 0.5) == true)
             else:
-                v = -1
+                # Load the ChallengeSet
+                files_cs = glob.glob('./ChallengeSets/{}-{}/*'.format(pair, split_name))
+                n_cs = len(files_cs)
+                if n_cs == 0:
+                    print(pair, split_name)
+                    
+                if split_name in ['both', 'just_main']:
+                    labels_cs = np.ones((n_cs), dtype = np.float32)
+                elif split_name in ['just_spurious', 'neither']:
+                    labels_cs = np.zeros((n_cs), dtype = np.float32)
+                
+                dataset_cs = ImageDataset(files_cs, labels_cs, get_names = True)
+                dataloader_cs = my_dataloader(dataset_cs)
+                y_hat_cs, y_true_cs, names_cs = wrapper.predict_dataset(dataloader_cs)
+                
+                correct = 0
+                for i in range(n_cs):
+                    if 1 * (y_hat_cs[i][index] >= 0.5) == y_true_cs[i]:
+                        correct += 1
+                v = correct / n_cs
             
             out['{}-{}'.format(pair, split_name)] = v
+            splits_acc[split_name] = v
+            
+        # Compute the 'balanced' precision, recall, and F1
+        # -  This keeps P(Main) from the original dataset
+        # -  But it sets P(Spurious | (Not) Main) = 0.5
+        p_main = (len(splits['both']) + len(splits['just_main'])) / (len(splits['both']) + len(splits['just_main']) + len(splits['just_spurious']) + len(splits['neither']))
+        
+        both = splits_acc['both']
+        just_main = splits_acc['just_main']
+        just_spurious = splits_acc['just_spurious']
+        neither = splits_acc['neither']
+        
+        tp = 0.5 * p_main * (both + just_main)
+        fp = 0.5 * (1 - p_main) * (2 - just_spurious - neither)
+        precision = tp / (tp + fp)
+        recall = 0.5 * (both + just_main)
+        f1 = 2 * precision * recall / (precision + recall)
+        
+        out['{}-b-precision'.format(pair)] = precision
+        out['{}-b-recall'.format(pair)] = recall
+        out['{}-b-f1'.format(pair)] = f1
+
     
     with open('{}/results.json'.format(model_dir), 'w') as f:
         json.dump(out, f)

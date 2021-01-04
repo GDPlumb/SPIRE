@@ -114,7 +114,7 @@ def train(mode, trial,
     # Load the the data specified by mode for each Image ID
     if mode in ['initial-transfer', 'initial-tune']:
         names = ['orig']
-    elif mode in ['aug-tune', 'aug-transfer']:
+    elif mode in ['aug-tune', 'aug-transfer', 'aug-tp-transfer']:
         with open('./FindSCs.json', 'r') as f:
             pairs = json.load(f)
             
@@ -154,6 +154,8 @@ def train(mode, trial,
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer, out_features = 91)
     elif mode in ['aug-transfer']:
         model, optim_params = get_model(mode = 'transfer', parent = parent_transfer, out_features = 91)
+    elif mode == 'aug-tp-transfer':
+        model, optim_params = get_model(mode = 'transfer', parent = './Models/initial-tune/trial{}/model.pt'.format(trial), out_features = 91)
     else:
         print('Error: Could not determine trainable parameters')
         sys.exit(0)
