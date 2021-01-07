@@ -157,6 +157,13 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
             mode_param = 10.0
         elif mode == 'gs-tune': # Not used in final experiments, but used for the comparisons shown.  See HPS_notes.txt
             mode_param = 10.0
+            
+    elif mode in ['simple-tune']:
+        names = {}
+        names['both'] = {'orig': 1.0, 'spurious-box': 1.0}
+        names['just_main'] = {'orig': 1.0}
+        names['just_spurious'] = {'orig': 1.0}
+        names['neither'] = {'orig': 1.0}
         
     else:
         print('Error: Unrecognized mode')
@@ -204,7 +211,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         if mode in ['gs-transfer']:
             feature_hook = Features(requires_grad = True)
             handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
-    elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-tune']:
+    elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-tune', 'simple-tune']:
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
     else:
         print('Train.py: Could not determine trainable parameters')

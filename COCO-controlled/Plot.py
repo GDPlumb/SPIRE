@@ -220,5 +220,6 @@ if __name__ == '__main__':
             #plot(main, spurious, subdir = 'comp-train', modes_specified = ['initial-transfer', 'initial-tune'])
             plot(main, spurious, subdir = 'main', modes_specified = ['initial-tune', 'minimal-tune', 'rrr-tune', 'gs-transfer', 'cdep-transfer'])
             #plot(main, spurious, subdir = 'gs', modes_specified = ['initial-tune', 'gs-transfer', 'gs-tune'])
+            plot(main, spurious, subdir = 'aug', modes_specified = ['initial-tune', 'minimal-tune', 'simple-tune'])
     except IndexError:
         pass
