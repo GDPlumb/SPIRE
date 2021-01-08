@@ -73,6 +73,13 @@ if __name__ == '__main__':
 
                 chosen_class = config[1]
                 chosen_id = coco.get_class_id(chosen_class)
+                
+                if chosen_class == main:
+                    unmask = False
+                    unmask_classes = None
+                elif chosen_class == spurious:
+                    unmask = True
+                    unmask_classes = [coco.get_class_id(main)]
 
                 name = config[2]
 
@@ -83,7 +90,11 @@ if __name__ == '__main__':
                     Path(save_dir).mkdir(parents = True, exist_ok = True)
 
                     # Mask Spurious
-                    mask_images_parallel(imgs, coco.coco, coco.get_base_dir(), save_dir, chosen_id = chosen_id, mode = mask_mode, unmask = True, use_png = (mask_mode == 'pixel'))
+                    mask_images_parallel(imgs, coco.coco,
+                                        coco.get_base_dir(), save_dir,
+                                        chosen_id = chosen_id, mode = mask_mode,
+                                        unmask = unmask, unmask_classes = unmask_classes,
+                                        use_png = (mask_mode == 'pixel'))
 
                     # Save the results
                     with open('{}-info.p'.format(save_dir), 'rb') as f:

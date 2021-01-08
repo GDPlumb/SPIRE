@@ -38,4 +38,4 @@ if __name__ == '__main__':
 
         #train(mode, trial, model_dir = model_dir)
         evaluate(model_dir, data_dir, coco)
-        #search(model_dir, data_dir, coco)
+        search(model_dir, data_dir, coco)

@@ -3,7 +3,15 @@ import json
 import os
 from subprocess import Popen
 
-modes = ['initial-transfer', 'aug-transfer', 'initial-tune', 'aug-tune', 'aug-tp-transfer']
+with open('./FindSCs.json', 'r') as f:
+    pairs = json.load(f)
+
+#modes = []
+#for i in range(len(pairs)):
+#    modes.append('partial-{}-transfer'.format(i))
+
+modes = ['corrected']
+
 trials = [0, 1, 2, 3]
 num_gpus = 4
 

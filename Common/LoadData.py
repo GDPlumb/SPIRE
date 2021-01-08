@@ -1,7 +1,7 @@
 
 import numpy as np
 
-def load_data(ids, images, names):
+def load_data(ids, images, names, indices_preserve = None):
     files = []
     labels = []
     for id in ids:
@@ -10,7 +10,14 @@ def load_data(ids, images, names):
                 if type(names) == dict:
                     if np.random.uniform() <= names[name]:
                         files.append(images[id][name][0])
-                        labels.append(images[id][name][1])                        
+                        
+                        label = np.copy(images[id][name][1]) #Copy in case this is somehow linked
+                        if indices_preserve is not None:
+                            for i in range(len(label)):
+                                if i not in indices_preserve:
+                                    label[i] = 0.0
+                        
+                        labels.append(label)
                 else:
                     files.append(images[id][name][0])
                     labels.append(images[id][name][1])

@@ -110,6 +110,7 @@ def train(mode, trial,
     mode_param = 0.0
     batch_size = 64
     feature_hook = None
+    indices_preserve = None
     
     # Load the the data specified by mode for each Image ID
     if mode in ['initial-transfer', 'initial-tune']:
@@ -127,6 +128,29 @@ def train(mode, trial,
             names['{}-{}-box'.format(main, main)] = 1/3
             names['{}-{}-box'.format(main, spurious)] = 1/3
             names['{}+{}'.format(main, spurious)] = 1/3
+    elif mode.split('-')[0] == 'partial':
+        
+        with open('./FindSCs.json', 'r') as f:
+            pairs = json.load(f)
+            
+        i = int(mode.split('-')[1])
+        pair = [key for key in pairs][i]
+        main = pair.split('-')[0]
+        spurious = pair.split('-')[1]
+        
+        names = {}
+        names['orig'] = 1.0
+        names['{}-{}-box'.format(main, main)] = 1/3
+        names['{}-{}-box'.format(main, spurious)] = 1/3
+        names['{}+{}'.format(main, spurious)] = 1/3
+        
+        for cat in cats:
+            if cat['name'] == main.replace('+', ' '):
+                index = int(cat['id'])
+                break
+        
+        indices_preserve = [index] # Zero out all of the other labels to stop the model from learning using them
+
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
@@ -135,8 +159,8 @@ def train(mode, trial,
     if mode in []:
         pass # Used for methods that pair the real and counterfactual examples
     else:
-        files_train, labels_train = load_data(ids_train, images, names)
-        files_val, labels_val = load_data(ids_val, images, names)
+        files_train, labels_train = load_data(ids_train, images, names, indices_preserve = indices_preserve)
+        files_val, labels_val = load_data(ids_val, images, names, indices_preserve = indices_preserve)
 
         datasets = {}
         datasets['train'] = ImageDataset(files_train, labels_train)
@@ -154,7 +178,7 @@ def train(mode, trial,
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer, out_features = 91)
     elif mode in ['aug-transfer']:
         model, optim_params = get_model(mode = 'transfer', parent = parent_transfer, out_features = 91)
-    elif mode == 'aug-tp-transfer':
+    elif mode in ['aug-tp-transfer'] or mode.split('-')[0] == 'partial':
         model, optim_params = get_model(mode = 'transfer', parent = './Models/initial-tune/trial{}/model.pt'.format(trial), out_features = 91)
     else:
         print('Error: Could not determine trainable parameters')

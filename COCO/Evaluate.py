@@ -111,9 +111,9 @@ def evaluate(model_dir, data_dir, coco, min_samples = 25):
         
         tp = 0.5 * p_main * (both + just_main)
         fp = 0.5 * (1 - p_main) * (2 - just_spurious - neither)
-        precision = tp / (tp + fp)
+        precision = tp / max(tp + fp, 1e-8)
         recall = 0.5 * (both + just_main)
-        f1 = 2 * precision * recall / (precision + recall)
+        f1 = 2 * precision * recall / max(precision + recall, 1e-8)
         
         out['{}-b-precision'.format(pair)] = precision
         out['{}-b-recall'.format(pair)] = recall
