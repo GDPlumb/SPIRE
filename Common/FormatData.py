@@ -7,6 +7,10 @@ from PIL import Image
 from pycocotools.coco import COCO
 import random
 import sys
+from torchvision import transforms
+
+from COCOHelper import id_from_path
+from Dataset import MakeSquare
 
 def get_mask(anns, mask_classes, coco, mode = 'box', unmask = True, unmask_classes = None):
 
@@ -155,20 +159,105 @@ def mask_images_parallel(images, coco, base_location, save_location, chosen_id =
     # Clean up
     os.system('rm tmp-*.p')
 
-def format_random(root, mode, year, mask_mode = 'box', unmask = True, use_png = False):
+def get_custom_resize(d):
+    return transforms.Compose([
+            MakeSquare(),
+            transforms.Resize((d,d))
+            ])
 
-    # Prep the data directory
-    base_location = '{}/{}{}'.format(root, mode, year)
-    save_location = '{}-random'.format(base_location)
-    if mask_mode == 'pixel':
-        save_location = '{}-pixel'.format(save_location)
+def merge_images(coco, save_dir, ids_background, ids_object, chosen_id):
+    imgs = coco.get_images_with_cats(None)
+    id2img = {}
+    for img in imgs:
+        id2img[id_from_path(img['file_name'])] = img
         
-    os.system('rm -rf {}'.format(save_location))
-    os.system('mkdir {}'.format(save_location))
+    base_dir = coco.get_base_dir()
     
-    # Create a copy of the data where each image has a random object category masked
-    coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
-    images = coco.loadImgs(coco.getImgIds())
+    filenames = []
+    labels = []
+    for i in range(len(ids_background)):
+        # Get info for the base image
+        id = ids_background[i]
+        
+        base_image = np.array(Image.open('{}/{}'.format(base_dir, id2img[id]['file_name'])).convert('RGB'))
+        width, height, _ = base_image.shape
+        dim_min = min(width, height)
+        
+        anns = coco.coco.loadAnns(coco.coco.getAnnIds(imgIds = id2img[id]['id']))
+        label = np.zeros((91))
+        for ann in anns:
+            label[ann['category_id']] = 1.0
+        
+        # Get info for the object image
+        id_object = ids_object[i]
+        
+        object_image = Image.open('{}/{}'.format(base_dir, id2img[id_object]['file_name'])).convert('RGB')
+        
+        anns_object = coco.coco.loadAnns(coco.coco.getAnnIds(imgIds = id2img[id_object]['id']))
+        mask = get_mask(anns_object, chosen_id, coco.coco, mode = 'pixel', unmask = False)
+        
+        # Merge the two images
+        custom_resize = get_custom_resize(dim_min)
 
+        mask = np.array(custom_resize(Image.fromarray(np.squeeze(mask))))
+        object_image = np.array(custom_resize(object_image))
+
+        mask_indices = np.where(mask != 0)
+
+        for j in range(3):
+            base_image[mask_indices[0], mask_indices[1], j] = object_image[mask_indices[0], mask_indices[1], j]
+
+        image_new = Image.fromarray(np.uint8(base_image))
+        
+        label[chosen_id[0]] = 1.0 #Add the object we pasted on.  Note:  this may cover other objects and so the labels are noisy
+
+        # Save the output
+        file_new = '{}/{}.jpg'.format(save_dir, id)
+        image_new.save(file_new)
+        
+        filenames.append(file_new)
+        labels.append(label)
+    return filenames, labels
+
+def merge_images_parallel(coco, save_dir, ids_background, ids_object, chosen_id, workers = 24):
+
+    # Split the images to pass them to the workers
+    ids_background_split = []
+    ids_object_split = []
+    for i in range(workers):
+        ids_background_split.append([])
+        ids_object_split.append([])
+    
+    next_worker = 0
+    for i in range(len(ids_background)):
+        ids_background_split[next_worker].append(ids_background[i])
+        ids_object_split[next_worker].append(ids_object[i])
+        next_worker = (next_worker + 1) % workers
+        
+    # Define the worker function
+    def merge_images_worker(id, ids_background_split = ids_background_split, ids_object_split = ids_object_split, coco = coco, save_dir = save_dir, chosen_id = chosen_id):
+        names, labels = merge_images(coco, save_dir, ids_background_split[id], ids_object_split[id], chosen_id)
+        with open('tmp-{}.p'.format(id), 'wb') as f:
+            pickle.dump([names, labels], f)
+        
     # Run
-    mask_images_parallel(images, coco, base_location, save_location, chosen_id = None, mode = mask_mode, unmask = unmask, use_png = use_png)
+    pool = ThreadPool(processes = workers)
+    pool.map(merge_images_worker, range(workers))
+    
+    # Collect the output
+    filenames = []
+    labels = []
+    for i in range(workers):
+        with open('tmp-{}.p'.format(i), 'rb') as f:
+            data = pickle.load(f)
+            
+        for j in range(len(data[0])):
+            filenames.append(data[0][j])
+            labels.append(data[1][j])
+    
+    # Save the output
+    with open('{}-info.p'.format(save_dir), 'wb') as f:
+        pickle.dump([filenames, labels], f)
+        
+    # Clean up
+    os.system('rm tmp-*.p')

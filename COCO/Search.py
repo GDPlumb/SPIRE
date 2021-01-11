@@ -43,20 +43,20 @@ def search(model_dir, data_dir, coco):
         map_orig = get_map(wrapper, images, ids, 'orig', index = index)
         
         names = []
-        for object in [main, spurious]:
+        for object in ['main', 'spurious']:
             for mask in ['box', 'pixel-paint']:
-                names.append('{}-{}-{}'.format(main, object, mask))
+                names.append('{}-{}-both-{}-{}'.format(main, spurious, object, mask))
         
         for name in names:
             map_name = get_map(wrapper, images, ids, name, index = index)
-            metrics['{}-{}'.format(pair, name)] = get_diff(map_name, map_orig)
+            metrics[name] = get_diff(map_name, map_orig)
             
         # Test adding Spurious to Just Main
         ids = [id for id in just_main]
         map_orig = get_map(wrapper, images, ids, 'orig', index = index)
-        name = '{}+{}'.format(main, spurious)
+        name = '{}-{}-just_main+spurious'.format(main, spurious)
         map_name = get_map(wrapper, images, ids, name, index = index)
-        metrics['{}-{}'.format(pair, name)] = get_diff(map_name, map_orig)
+        metrics[name] = get_diff(map_name, map_orig)
         
         # Save the output
         with open('{}/search.json'.format(model_dir), 'w') as f:

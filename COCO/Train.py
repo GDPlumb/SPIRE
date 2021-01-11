@@ -107,6 +107,7 @@ def train(mode, trial,
     else:
         lr = None
     
+    select_cutoff = 3
     mode_param = 0.0
     batch_size = 64
     feature_hook = None
@@ -115,34 +116,18 @@ def train(mode, trial,
     # Load the the data specified by mode for each Image ID
     if mode in ['initial-transfer', 'initial-tune']:
         names = ['orig']
-    elif mode in ['aug-tune', 'aug-transfer', 'aug-tp-transfer']:
-        with open('./FindSCs.json', 'r') as f:
-            pairs = json.load(f)
-            
-        names = {}
-        names['orig'] = 1.0
-        for pair in pairs:
-            main = pair.split('-')[0]
-            spurious = pair.split('-')[1]
-            
-            names['{}-{}-box'.format(main, main)] = 1/3
-            names['{}-{}-box'.format(main, spurious)] = 1/3
-            names['{}+{}'.format(main, spurious)] = 1/3
     elif mode.split('-')[0] == 'partial':
         
-        with open('./FindSCs.json', 'r') as f:
-            pairs = json.load(f)
+        select_cutoff = 1
+        
+        with open('./FindAugs/classes.json', 'r') as f:
+            mains = json.load(f)
             
         i = int(mode.split('-')[1])
-        pair = [key for key in pairs][i]
-        main = pair.split('-')[0]
-        spurious = pair.split('-')[1]
+        main = mains[i]
         
-        names = {}
-        names['orig'] = 1.0
-        names['{}-{}-box'.format(main, main)] = 1/3
-        names['{}-{}-box'.format(main, spurious)] = 1/3
-        names['{}+{}'.format(main, spurious)] = 1/3
+        with open('./FindAugs/{}/names.json'.format(main), 'r') as f:
+            names = json.load(f)
         
         for cat in cats:
             if cat['name'] == main.replace('+', ' '):
@@ -174,11 +159,9 @@ def train(mode, trial,
     parent_transfer = './Models/initial-transfer/trial{}/model.pt'.format(trial)
     if mode == 'initial-transfer':
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained', out_features = 91)
-    elif mode in ['initial-tune', 'aug-tune']:
+    elif mode in ['initial-tune']:
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer, out_features = 91)
-    elif mode in ['aug-transfer']:
-        model, optim_params = get_model(mode = 'transfer', parent = parent_transfer, out_features = 91)
-    elif mode in ['aug-tp-transfer'] or mode.split('-')[0] == 'partial':
+    elif mode.split('-')[0] == 'partial':
         model, optim_params = get_model(mode = 'transfer', parent = './Models/initial-tune/trial{}/model.pt'.format(trial), out_features = 91)
     else:
         print('Error: Could not determine trainable parameters')
@@ -189,7 +172,7 @@ def train(mode, trial,
     metric_loss = torch.nn.BCEWithLogitsLoss()
 
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
-                        lr_init = lr, select_cutoff = 3, decay_max = 1,
+                        lr_init = lr, select_cutoff = select_cutoff, decay_max = 1,
                         mode = mode, mode_param = mode_param, feature_hook = feature_hook)
     torch.save(model.state_dict(), '{}.pt'.format(name))
     

@@ -15,15 +15,14 @@ for trial in [0, 1, 2, 3]:
     with open('./COCO_cats.json', 'r') as f: #This is a json copy of coco.loadCats(coco.getCatIds())
         cats = json.load(f)
 
-    with open('./FindSCs.json', 'r') as f:
-        pairs = json.load(f)
-    pairs = [key for key in pairs]
-    
-    for i, pair in enumerate(pairs):
-        main = pair.split('-')[0].replace('+', ' ')
+    with open('./FindAugs/classes.json', 'r') as f:
+        classes = json.load(f)
+
+    for i, main in enumerate(classes):
+        main = main.replace('+', ' ')
         
         for cat in cats:
-            if cat['name'] == main.replace('+', ' '):
+            if cat['name'] == main:
                 index = int(cat['id'])
                 break
 
@@ -32,7 +31,7 @@ for trial in [0, 1, 2, 3]:
         model.fc.bias[index] = model_partial.fc.bias[index]
         model.fc.weight[index, :] = model_partial.fc.weight[index, :]
 
-    save_dir = './Models/corrected/trial{}'.format(trial)
+    save_dir = './Models/test/trial{}'.format(trial)
     os.system('rm -rf {}'.format(save_dir))
     Path(save_dir).mkdir(parents = True, exist_ok = True)
 

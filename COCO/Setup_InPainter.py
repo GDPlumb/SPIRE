@@ -41,9 +41,9 @@ if __name__ == '__main__':
             pair_dir = '{}/{}-{}'.format(mode_dir, main, spurious)
             print(pair_dir)
             
-            for object in [main, spurious]:
-                mask_mode = '{}-{}-pixel'.format(main, object)
-                save_dir = '{}/{}-paint'.format(pair_dir, mask_mode)
+            for object in ['main', 'spurious']:
+                mask_mode = '{}-{}-both-{}-pixel'.format(main, spurious, object)
+                save_dir = '{}/{}-pixel-paint'.format(pair_dir, object)
                 Path(save_dir).mkdir(parents = True, exist_ok = True)
         
                 for id in ids:

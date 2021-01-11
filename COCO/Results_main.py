@@ -3,14 +3,14 @@ import json
 import os
 from subprocess import Popen
 
-with open('./FindSCs.json', 'r') as f:
-    pairs = json.load(f)
-
-#modes = []
-#for i in range(len(pairs)):
-#    modes.append('partial-{}-transfer'.format(i))
-
-modes = ['corrected']
+if False:
+    with open('./FindAugs/classes.json', 'r') as f:
+        classes = json.load(f)
+    modes = []
+    for i in range(len(classes)):
+        modes.append('partial-{}-transfer'.format(i))
+else:
+    modes = ['initial-transfer', 'initial-tune', 'auto-v1', 'auto-v2']
 
 trials = [0, 1, 2, 3]
 num_gpus = 4

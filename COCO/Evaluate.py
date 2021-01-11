@@ -100,25 +100,27 @@ def evaluate(model_dir, data_dir, coco, min_samples = 25):
             splits_acc[split_name] = v
             
         # Compute the 'balanced' precision, recall, and F1
-        # -  This keeps P(Main) from the original dataset
-        # -  But it sets P(Spurious | (Not) Main) = 0.5
-        p_main = (len(splits['both']) + len(splits['just_main'])) / (len(splits['both']) + len(splits['just_main']) + len(splits['just_spurious']) + len(splits['neither']))
-        
+        # -  We keep P(Main) from the original dataset
+        # -  We then construct a distribution where Spurious is independent from Main
+        # -  We use either 1/2 or P(Spurious) from the original dataset while doing this
+        total = len(splits['both']) + len(splits['just_main']) + len(splits['just_spurious']) + len(splits['neither'])
+        p_main = (len(splits['both']) + len(splits['just_main'])) / total
+        p_spurious = 0.5 #(len(splits['both']) + len(splits['just_spurious'])) / total
+    
         both = splits_acc['both']
         just_main = splits_acc['just_main']
         just_spurious = splits_acc['just_spurious']
         neither = splits_acc['neither']
         
-        tp = 0.5 * p_main * (both + just_main)
-        fp = 0.5 * (1 - p_main) * (2 - just_spurious - neither)
+        tp = p_main * (p_spurious * both + (1 - p_spurious) * just_main)
+        fp = (1 - p_main) * (p_spurious * (1 - just_spurious)  + (1 - p_spurious) * (1 -  neither))
         precision = tp / max(tp + fp, 1e-8)
-        recall = 0.5 * (both + just_main)
+        recall = p_spurious * both + (1 - p_spurious) * just_main
         f1 = 2 * precision * recall / max(precision + recall, 1e-8)
         
         out['{}-b-precision'.format(pair)] = precision
         out['{}-b-recall'.format(pair)] = recall
         out['{}-b-f1'.format(pair)] = f1
 
-    
     with open('{}/results.json'.format(model_dir), 'w') as f:
         json.dump(out, f)

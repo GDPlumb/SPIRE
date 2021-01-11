@@ -1,31 +1,22 @@
 
 import json
 import numpy as np
+import os
 from pathlib import Path
+import pickle
 from PIL import Image
 import sys
-from torchvision import transforms
 
 from Config import get_data_dir, get_random_seed, get_data_fold, get_max_samples
 
 sys.path.insert(0, '../Common/')
 from COCOHelper import id_from_path
 from COCOWrapper import COCOWrapper
-from Dataset import MakeSquare
-from FormatData import get_mask
-
-def get_custom_resize(d):
-    return transforms.Compose([
-            MakeSquare(),
-            transforms.Resize((d,d))
-            ])
+from FormatData import merge_images_parallel
 
 if __name__ == '__main__':
 
     print('Adding')
-
-    mask_mode = 'pixel'
-    unmask = False
 
     np.random.seed(get_random_seed())
     
@@ -50,11 +41,6 @@ if __name__ == '__main__':
             images = json.load(f)
             
         coco = COCOWrapper(mode = mode)
-        
-        imgs = coco.get_images_with_cats(None)
-        id2img = {}
-        for img in imgs:
-            id2img[id_from_path(img['file_name'])] = img
             
         for pair in pairs:
             main = pair.split('-')[0]
@@ -64,68 +50,63 @@ if __name__ == '__main__':
             
             with open('{}/{}/splits/{}-{}.json'.format(get_data_dir(), mode, main, spurious), 'r') as f:
                 splits = json.load(f)
-            just_main = splits['just_main']
-            just_spurious = splits['just_spurious']
+                
+            splits['main'] = []
+            for split in ['both', 'just_main']:
+                for id in splits[split]:
+                    splits['main'].append(id)
+                    
+            splits['spurious'] = []
+            for split in ['both', 'just_spurious']:
+                for id in splits[split]:
+                    splits['spurious'].append(id)
+                
+            type2name = {}
+            type2name['main'] = main
+            type2name['spurious'] = spurious
             
-            configs = [(just_main, just_spurious, spurious, '{}+{}'.format(main, spurious))]
+            configs = [('neither', 'main'), ('neither', 'spurious'), ('just_main', 'spurious'), ('just_spurious', 'main')]
             for config in configs:
         
-                background_split = config[0]
-                object_split = config[1]
-                chosen_class = config[2]
-                name = config[3]
-            
-                chosen_id = [coco.get_class_id(chosen_class)]
+                background_name = config[0]
+                background_split = splits[background_name]
                 
-                save_dir = '{}/{}'.format(pair_dir, name)
-                Path(save_dir).mkdir(parents = True, exist_ok = True)
-            
                 ids_background = [id for id in background_split]
                 if num_samples is not None and num_samples < len(ids_background):
                     ids_background = np.random.choice(ids_background, size = num_samples, replace = False)
                 
-                ids_object = [id for id in object_split]
-            
-                # Get a random object to past into this background
-                n = len(ids_background)
-                indices = np.zeros((n), dtype = np.int)
-                for i in range(n):
-                    indices[i] = np.random.randint(0, len(ids_object))
+                class_name = config[1]
+                chosen_class = type2name[class_name]
+                chosen_id = [coco.get_class_id(chosen_class)]
+                
+                ids_object_all = [id for id in splits[class_name]]
+                n = len(ids_object_all)
+                
+                # Get a random object to past into each background
+                ids_object = []
+                for i in range(len(ids_background)):
+                    ids_object.append(ids_object_all[np.random.randint(0, n)])
                     
-                for i in range(n):
-            
-                    id = ids_background[i]
+                name = '{}-{}-{}+{}'.format(main, spurious, background_name, class_name)
                 
-                    id_object = ids_object[indices[i]]
-                
-                    anns_object = coco.coco.loadAnns(coco.coco.getAnnIds(imgIds = id2img[id_object]['id']))
-                    mask = get_mask(anns_object, chosen_id, coco.coco, mode = mask_mode, unmask = unmask)
-                                
-                    object_image = Image.open(images[id_object]['orig'][0]).convert('RGB')
-                
-                    base_image = np.array(Image.open(images[id]['orig'][0]).convert('RGB'))
-                    width, height, _ = base_image.shape
-                    dim_min = min(width, height)
-                
-                    custom_resize = get_custom_resize(dim_min)
-                
-                    mask = np.array(custom_resize(Image.fromarray(np.squeeze(mask))))
-                    object_image = np.array(custom_resize(object_image))
-                
-                    mask_indices = np.where(mask != 0)
-
-                    for j in range(3):
-                        base_image[mask_indices[0], mask_indices[1], j] = object_image[mask_indices[0], mask_indices[1], j]
-
-                    image_new = Image.fromarray(np.uint8(base_image))
+                save_dir = '{}/{}+{}'.format(pair_dir, background_name, class_name)
+                Path(save_dir).mkdir(parents = True, exist_ok = True)
                     
-                    label_new = images[id]['orig'][1].copy() #Get the original labels
-                    label_new[chosen_id[0]] = 1.0 #Add the object we pasted on.  Note:  this may cover other objects and so the labels are noisy
+                # Merge the iimages
+                merge_images_parallel(coco, save_dir, ids_background, ids_object, chosen_id)
                 
-                    file_new = '{}/{}.jpg'.format(save_dir, id)
+                # Save the results
+                with open('{}-info.p'.format(save_dir), 'rb') as f:
+                    filenames, labels = pickle.load(f)
+                os.system('rm {}-info.p'.format(save_dir))
+
+                for i in range(len(filenames)):
+                    filename = filenames[i]
+                    label = list(np.copy(labels[i]))
+                    id = id_from_path(filename)
+
+                    images[id][name] = [filename, label]
+
+                with open('{}/images.json'.format(mode_dir), 'w') as f:
+                    json.dump(images, f)
                 
-                    image_new.save(file_new)
-                    images[id][name] = [file_new, label_new]
-                
-            with open('{}/images.json'.format(mode_dir), 'w') as f:
-                json.dump(images, f)

@@ -62,26 +62,35 @@ if __name__ == '__main__':
             
             with open('{}/{}/splits/{}-{}.json'.format(get_data_dir(), mode, main, spurious), 'r') as f:
                 splits = json.load(f)
-            both = splits['both']
             
-            configs = [(both, spurious, '{}-{}'.format(main, spurious)), (both, main, '{}-{}'.format(main, main))]
+            type2name = {}
+            type2name['main'] = main
+            type2name['spurious'] = spurious
+            
+            name_base = '{}-{}'.format(main, spurious)
+            
+            configs = [('both', 'main'), ('both', 'spurious'), ('just_main', 'main'), ('just_spurious', 'spurious')]
             for config in configs:
             
-                imgs = [id2img[id] for id in config[0]]
+                split_name = config[0]
+                split = splits[split_name]
+            
+                imgs = [id2img[id] for id in split]
                 if num_samples is not None and num_samples < len(imgs):
                     imgs = np.random.choice(imgs, size = num_samples, replace = False)
 
-                chosen_class = config[1]
+                class_name = config[1]
+                chosen_class = type2name[class_name]
                 chosen_id = coco.get_class_id(chosen_class)
                 
-                if chosen_class == main:
+                if class_name == 'main':
                     unmask = False
                     unmask_classes = None
-                elif chosen_class == spurious:
+                elif class_name == 'spurious':
                     unmask = True
                     unmask_classes = [coco.get_class_id(main)]
 
-                name = config[2]
+                name = '{}-{}-{}-{}'.format(main, spurious, split_name, class_name)
 
                 for mask_mode in mask_list:
 
