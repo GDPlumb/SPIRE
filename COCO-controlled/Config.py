@@ -1,6 +1,6 @@
 
 def get_data_dir():
-    return '/home/gregory/Datasets/COCO-controlled'
-    
+    return '/home/marcotcr/datasets/COCO-controlled'
+
 def get_random_seed():
     return 123

@@ -4,11 +4,14 @@ import os
 from subprocess import Popen
 
 #'bottle person' 'bowl person' 'car person' 'chair person' 'cup person' 'dining+table person' 'bottle cup' 'bowl cup' 'chair cup' 'bottle dining+table' 'bowl dining+table' 'chair dining+table' 'cup dining+table'
-pairs = ['bottle person', 'bowl person', 'car person', 'chair person', 'cup person', 'dining+table person']
-modes = ['simple-tune']
-p_list = [0.025, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.975]
-trials = [0, 1, 2, 3, 4, 5, 6, 7]
-num_gpus = 4
+# pairs = ['bottle person', 'bowl person', 'car person', 'chair person', 'cup person', 'dining+table person']
+pairs = ['cup person']
+# modes = ['minimal-tune', 'initial-tune']
+modes = ['initial-transfer', 'minimal-tune', 'initial-tune']
+# p_list = [0.025, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.975]
+p_list = [0.2]
+trials = [0, 1, 2, 3]#, 4, 5, 6, 7]
+num_gpus = 1
 
 # Generate all of the configurations we want to run
 configs = []
@@ -18,16 +21,16 @@ for pair in pairs:
     for mode in modes:
         for p in p_list:
             for trial in trials:
-        
+
                 config = {}
                 config['main'] = main
                 config['spurious'] = spurious
                 config['p_correct'] = p
                 config['mode'] = mode
                 config['trial'] = trial
-                
+
                 configs.append(config)
-        
+
 # Divide the configs among the workers
 configs_worker = [[] for i in range(num_gpus)]
 next_worker = 0
