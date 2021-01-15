@@ -142,11 +142,11 @@ if __name__ == '__main__':
             save_location = '{}/{}+fake_main_box'.format(mode_dir, background_split)
             os.system('rm -rf {}'.format(save_location))
             os.system('mkdir {}'.format(save_location))
-            name = '{}+fake_main_box'.format(mode_dir)
+            name = '{}+fake_main_box'.format(background_split)
             add_fakeboxes(coco, save_location, ids_background[:half], indices[:half], [main_id], images, name, main_in,  unmask_classes=unmask_map[background_split])
 
             save_location = '{}/{}+fake_spurious_box'.format(mode_dir, background_split)
-            name = '{}+fake_spurious_box'.format(mode_dir)
+            name = '{}+fake_spurious_box'.format(background_split)
             os.system('rm -rf {}'.format(save_location))
             os.system('mkdir {}'.format(save_location))
             add_fakeboxes(coco, save_location, ids_background[half:len(indices)], indices[half:], [spurious_id], images, name, main_in,  unmask_classes=unmask_map[background_split])
