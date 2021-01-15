@@ -55,7 +55,7 @@ def splits2acc(splits, orig_dict, index, min_samples = 25):
         
     return out
     
-def cf_score(both, orig_dict, cf_dict, index, min_samples = 20):
+def cf_score(both, orig_dict, cf_dict, index, min_samples = 25):
     changed = 0
     n = len(both)
     if n < min_samples:
@@ -70,9 +70,9 @@ def cf_score(both, orig_dict, cf_dict, index, min_samples = 20):
 
 if __name__ == "__main__":
 
-    parent = './Models/initial-transfer/trial0/model.pt'
+    parent = './Models/initial-tune/trial0/model.pt'
     mode = 'train'
-
+    
     os.system('rm -rf FindSCs')
     os.system('mkdir FindSCs')
     
@@ -143,19 +143,10 @@ if __name__ == "__main__":
                 # Get the image splits for this object pair
                 with open('{}/{}/splits/{}-{}.json'.format(get_data_dir(), mode, main, spurious), 'r') as f:
                     splits = json.load(f)
-                    
-                # Distribution evaluation
-                out = splits2dist(splits)
-                for key in out:
-                    results[key] = out[key]
-                
-                # Accuracy per Split evalaution
-                out = splits2acc(splits, orig_dict, index_main)
-                for key in out:
-                    results[key] = out[key]
                 
                 # Counterfactual Score evaluation
-                results['cf_score'] = cf_score(splits['both'], orig_dict, cf_dict, index_main)
+                v = cf_score(splits['both'], orig_dict, cf_dict, index_main)
+                results['cf_score'] = v
                 
                 # Save
                 with open('./FindSCs/{}-{}.json'.format(main, spurious), 'w') as f:

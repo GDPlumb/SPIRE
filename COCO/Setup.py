@@ -43,7 +43,7 @@ if __name__ == '__main__':
                 label[ann['category_id']] = 1.0
             label = list(label)
             
-            images[id] = {'orig': [filename, label]}
+            images[id] = [filename, label]
         
         # Save
         with open('{}/images.json'.format(mode_dir), 'w') as f:

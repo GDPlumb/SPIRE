@@ -36,9 +36,6 @@ if __name__ == '__main__':
         mode_dir = '{}/{}'.format(get_data_dir(), mode)
         
         num_samples = max_samples[mode]
-        
-        with open('{}/images.json'.format(mode_dir), 'r') as f:
-            images = json.load(f)
             
         coco = COCOWrapper(mode = mode)
             
@@ -78,7 +75,7 @@ if __name__ == '__main__':
                 class_name = config[1]
                 chosen_class = type2name[class_name]
                 chosen_id = [coco.get_class_id(chosen_class)]
-                
+                                
                 ids_object_all = [id for id in splits[class_name]]
                 n = len(ids_object_all)
                 
@@ -86,27 +83,22 @@ if __name__ == '__main__':
                 ids_object = []
                 for i in range(len(ids_background)):
                     ids_object.append(ids_object_all[np.random.randint(0, n)])
-                    
-                name = '{}-{}-{}+{}'.format(main, spurious, background_name, class_name)
                 
+                # Setup the output directory
                 save_dir = '{}/{}+{}'.format(pair_dir, background_name, class_name)
                 Path(save_dir).mkdir(parents = True, exist_ok = True)
                     
-                # Merge the iimages
-                merge_images_parallel(coco, save_dir, ids_background, ids_object, chosen_id)
-                
-                # Save the results
-                with open('{}-info.p'.format(save_dir), 'rb') as f:
-                    filenames, labels = pickle.load(f)
-                os.system('rm {}-info.p'.format(save_dir))
+                # Merge the images
+                filenames, labels = merge_images_parallel(coco, save_dir, ids_background, ids_object, chosen_id)
 
+                # Save the output
+                images = {}
                 for i in range(len(filenames)):
                     filename = filenames[i]
                     label = list(np.copy(labels[i]))
                     id = id_from_path(filename)
+                    images[id] = [filename, label]
 
-                    images[id][name] = [filename, label]
-
-                with open('{}/images.json'.format(mode_dir), 'w') as f:
+                with open('{}/images.json'.format(save_dir), 'w') as f:
                     json.dump(images, f)
                 

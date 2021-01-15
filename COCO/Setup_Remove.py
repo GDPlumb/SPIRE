@@ -43,9 +43,6 @@ if __name__ == '__main__':
         
         mask_list = mask_lists[mode]
         num_samples = max_samples[mode]
-        
-        with open('{}/images.json'.format(mode_dir), 'r') as f:
-            images = json.load(f)
             
         coco = COCOWrapper(mode = mode)
         
@@ -90,32 +87,25 @@ if __name__ == '__main__':
                     unmask = True
                     unmask_classes = [coco.get_class_id(main)]
 
-                name = '{}-{}-{}-{}'.format(main, spurious, split_name, class_name)
-
                 for mask_mode in mask_list:
-
                     # Setup the output directory
-                    save_dir = '{}/{}-{}'.format(pair_dir, chosen_class, mask_mode)
+                    save_dir = '{}/{}-{}-{}'.format(pair_dir, split_name, class_name, mask_mode)
                     Path(save_dir).mkdir(parents = True, exist_ok = True)
 
                     # Mask Spurious
-                    mask_images_parallel(imgs, coco.coco,
-                                        coco.get_base_dir(), save_dir,
-                                        chosen_id = chosen_id, mode = mask_mode,
-                                        unmask = unmask, unmask_classes = unmask_classes,
-                                        use_png = (mask_mode == 'pixel'))
+                    filenames, labels = mask_images_parallel(imgs, coco.coco,
+                                            coco.get_base_dir(), save_dir,
+                                            chosen_id = chosen_id, mode = mask_mode,
+                                            unmask = unmask, unmask_classes = unmask_classes,
+                                            use_png = (mask_mode == 'pixel'))
 
-                    # Save the results
-                    with open('{}-info.p'.format(save_dir), 'rb') as f:
-                        filenames, labels = pickle.load(f)
-                    os.system('rm {}-info.p'.format(save_dir))
-
+                    # Save the output
+                    images = {}
                     for i in range(len(filenames)):
                         filename = filenames[i]
                         label = list(np.copy(labels[i]))
                         id = id_from_path(filename)
-
-                        images[id]['{}-{}'.format(name, mask_mode)] = [filename, label]
-
-                    with open('{}/images.json'.format(mode_dir), 'w') as f:
+                        images[id] = [filename, label]
+                    
+                    with open('{}/images.json'.format(save_dir), 'w') as f:
                         json.dump(images, f)

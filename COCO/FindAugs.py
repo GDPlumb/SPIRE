@@ -131,8 +131,8 @@ def eval_2(sizes, deltas, augs,
             print(c, format(totals[c]))
         
     for c in CHARS:
-        if c in ['B', 'M']: # Auto-v2 differs from Auto-v1 by this single line
-            cost += lambda_diff * torch.abs(totals[c] - deltas[c])
+        #if c in ['B', 'M']: # Auto-v2 differs from Auto-v1 by this single line
+        cost += lambda_diff * torch.abs(totals[c] - deltas[c])
         
     # Check that the intervention does not leave traces
     v = augs['B2M'] - (augs['B2S'] + augs['M2N'] + augs['S2N'])
@@ -157,10 +157,8 @@ if __name__ == '__main__':
 
     with open('./FindSCs.json', 'r') as f:
         pairs = json.load(f)
-    pairs = [key for key in pairs]
     
     sorted_pairs = {}
-    
     for pair in pairs:
         # Setup this pair
         split = pair.split('-')
@@ -204,9 +202,9 @@ if __name__ == '__main__':
             deltas[CHARS[i]] = torch.tensor(v, requires_grad = True)
             params.append(deltas[CHARS[i]])
 
-        opt = Adam(params, lr = 0.001)
+        opt = Adam(params, lr = 0.0005)
         hist = []
-        for i in range(1000):
+        for i in range(3000):
             cost = eval_1(sizes, deltas)
             hist.append(cost.item())
 
@@ -238,7 +236,7 @@ if __name__ == '__main__':
 
         opt = Adam(params, lr = 0.001)
         hist = []
-        for i in range(1000):
+        for i in range(2000):
             cost = eval_2(sizes, deltas, augs)
             hist.append(cost.item())
 

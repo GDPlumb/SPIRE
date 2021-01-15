@@ -8,6 +8,7 @@ import sys
 import torch
 
 from Config import get_data_dir, get_data_fold
+from LoadImages import load_images
 
 sys.path.insert(0, '../Common/')
 from Dataset import ImageDataset, my_dataloader
@@ -91,8 +92,7 @@ def train(mode, trial,
         fold = 'train'
     
     data_dir = '{}/{}'.format(get_data_dir(), fold)
-    with open('{}/images.json'.format(data_dir), 'r') as f:
-        images = json.load(f)
+    images = load_images([], data_dir)
 
     # Get the ids of the training images for this experiment
     # By splitting on Image ID, we ensure all counterfactual version of an image are in the same fold
@@ -120,22 +120,35 @@ def train(mode, trial,
         
         select_cutoff = 1
         
-        with open('./FindAugs/classes.json', 'r') as f:
-            mains = json.load(f)
-            
+        # Get the name of Main
         i = int(mode.split('-')[1])
-        main = mains[i]
+        with open('./FindAugs/classes.json', 'r') as f:
+            main = json.load(f)[i]
         
+        # Get each of the pairs involving Main
+        with open('./FindSCs.json', 'r') as f:
+            pairs_all = json.load(f)
+        
+        pairs = []
+        for pair in pairs_all:
+            if pair.split('-')[0] == main:
+                pairs.append(pair)
+                
+        # Load the images for these pairs
+        images = load_images(pairs, data_dir)
+
+        # Get the sampling probabilities for Main
         with open('./FindAugs/{}/names.json'.format(main), 'r') as f:
             names = json.load(f)
         
+        # Get the index for Main
         for cat in cats:
             if cat['name'] == main.replace('+', ' '):
                 index = int(cat['id'])
                 break
         
         indices_preserve = [index] # Zero out all of the other labels to stop the model from learning using them
-
+        
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)

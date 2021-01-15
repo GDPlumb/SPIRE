@@ -8,7 +8,5 @@ COCO-controlled/Models/*
 COCO-nuanced/Models/*
 
 COCO/Models/*
-COCO/Search/*
-COCO/Configs.json
-COCO/Test.ipynb
+COCO/FindAugs/*
 

@@ -17,7 +17,7 @@ for trial in [0, 1, 2, 3]:
 
     with open('./FindAugs/classes.json', 'r') as f:
         classes = json.load(f)
-
+    
     for i, main in enumerate(classes):
         main = main.replace('+', ' ')
         
@@ -31,7 +31,7 @@ for trial in [0, 1, 2, 3]:
         model.fc.bias[index] = model_partial.fc.bias[index]
         model.fc.weight[index, :] = model_partial.fc.weight[index, :]
 
-    save_dir = './Models/test/trial{}'.format(trial)
+    save_dir = './Models/merge/trial{}'.format(trial)
     os.system('rm -rf {}'.format(save_dir))
     Path(save_dir).mkdir(parents = True, exist_ok = True)
 

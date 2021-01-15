@@ -4,6 +4,8 @@ import json
 import numpy as np
 import sys
 
+from LoadImages import load_images
+
 sys.path.insert(0, '../Common/')
 from COCOHelper import id_from_path
 from Dataset import ImageDataset, my_dataloader
@@ -11,11 +13,17 @@ from LoadData import load_data
 from ModelWrapper import ModelWrapper
 from ResNet import get_model
 
+def get_metrics(acc_1, acc_0, p_1): # Acc | Label = 1, Acc | Label = 0, P(Label = 1)
+    recall = acc_1
+    tp = p_1 * acc_1 # number True Positives
+    fp = (1 - p_1) * (1 - acc_0) # number False Positives
+    precision = tp / max(tp + fp, 1e-8)
+    return recall, precision
+
 def evaluate(model_dir, data_dir, coco, min_samples = 25):
 
     # Load the needed information
-    with open('{}/images.json'.format(data_dir), 'r') as f:
-        images = json.load(f)
+    images = load_images([], data_dir)
     
     with open('./FindSCs.json', 'r') as f:
         pairs = json.load(f)
@@ -121,6 +129,12 @@ def evaluate(model_dir, data_dir, coco, min_samples = 25):
         out['{}-b-precision'.format(pair)] = precision
         out['{}-b-recall'.format(pair)] = recall
         out['{}-b-f1'.format(pair)] = f1
+        
+        # Compute the precision/recall gaps between images with and without Spurious
+        r_with, p_with = get_metrics(both, just_spurious, p_main) # Metrics for images With Spurious
+        r_without, p_without = get_metrics(just_main, neither, p_main) # Metrics for images Without Spurious
+        out['{}-r-gap'.format(pair)] = r_with - r_without
+        out['{}-p-gap'.format(pair)] = p_with - p_without
 
     with open('{}/results.json'.format(model_dir), 'w') as f:
         json.dump(out, f)

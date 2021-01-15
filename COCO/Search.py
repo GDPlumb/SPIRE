@@ -2,6 +2,8 @@
 import json
 import sys
 
+from LoadImages import load_images
+
 sys.path.insert(0, '../Common/')
 from ModelWrapper import ModelWrapper
 from ResNet import get_model
@@ -12,9 +14,6 @@ def search(model_dir, data_dir, coco):
     # Setup the data
     with open('./FindSCs.json', 'r') as f:
         pairs = json.load(f)
-    
-    with open('{}/images.json'.format(data_dir), 'r') as f:
-        images = json.load(f)
             
     # Setup the model
     model = get_model(mode = 'eval', parent = '{}/model.pt'.format(model_dir), out_features = 91)
@@ -28,6 +27,8 @@ def search(model_dir, data_dir, coco):
     for pair in pairs:
         main = pair.split('-')[0]
         spurious = pair.split('-')[1]
+        
+        images = load_images([pair], data_dir)
         
         # Get the index that we care about for this pair
         index = coco.get_class_id(main)

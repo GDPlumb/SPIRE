@@ -2,7 +2,6 @@
 from multiprocessing.pool import ThreadPool
 import numpy as np
 import os
-import pickle
 from PIL import Image
 from pycocotools.coco import COCO
 import random
@@ -133,31 +132,22 @@ def mask_images_parallel(images, coco, base_location, save_location, chosen_id =
         
     # Define the worker function
     def mask_images_worker(id, images_split = images_split, coco = coco, base_location = base_location, save_location = save_location, chosen_id = chosen_id, mode = mode, invert = invert, unmask = unmask, unmask_classes = unmask_classes, use_png = use_png):
-        names, labels = mask_images(images_split[id], coco, base_location, save_location, chosen_id = chosen_id, mode = mode, invert = invert, unmask = unmask, unmask_classes = unmask_classes, use_png = use_png)
-        with open('tmp-{}.p'.format(id), 'wb') as f:
-            pickle.dump([names, labels], f)
-        
+        return mask_images(images_split[id], coco, base_location, save_location, chosen_id = chosen_id, mode = mode, invert = invert, unmask = unmask, unmask_classes = unmask_classes, use_png = use_png)
+    
     # Run
     pool = ThreadPool(processes = workers)
-    pool.map(mask_images_worker, range(workers))
+    out = pool.map(mask_images_worker, range(workers))
     
     # Collect the output
     filenames = []
     labels = []
-    for i in range(workers):
-        with open('tmp-{}.p'.format(i), 'rb') as f:
-            data = pickle.load(f)
-            
-        for j in range(len(data[0])):
-            filenames.append(data[0][j])
-            labels.append(data[1][j])
-    
-    # Save the output
-    with open('{}-info.p'.format(save_location), 'wb') as f:
-        pickle.dump([filenames, labels], f)
-        
-    # Clean up
-    os.system('rm tmp-*.p')
+    for pair in out:
+        f = pair[0]
+        l = pair[1]
+        for i in range(len(f)):
+            filenames.append(f[i])
+            labels.append(l[i])
+    return filenames, labels
 
 def get_custom_resize(d):
     return transforms.Compose([
@@ -179,15 +169,17 @@ def merge_images(coco, save_dir, ids_background, ids_object, chosen_id):
         # Get info for the base image
         id = ids_background[i]
         
-        base_image = np.array(Image.open('{}/{}'.format(base_dir, id2img[id]['file_name'])).convert('RGB'))
+        base_filename = id2img[id]['file_name']
+        base_image = np.array(Image.open('{}/{}'.format(base_dir, base_filename)).convert('RGB'))
         width, height, _ = base_image.shape
         dim_min = min(width, height)
         
         anns = coco.coco.loadAnns(coco.coco.getAnnIds(imgIds = id2img[id]['id']))
-        label = np.zeros((91))
+        label_new = np.zeros((91))
         for ann in anns:
-            label[ann['category_id']] = 1.0
-        
+            label_new[ann['category_id']] = 1.0
+        label_new[chosen_id[0]] = 1.0 #Add the object we pasted on.  Note:  this may cover other objects and so the labels are noisy
+
         # Get info for the object image
         id_object = ids_object[i]
         
@@ -209,14 +201,11 @@ def merge_images(coco, save_dir, ids_background, ids_object, chosen_id):
 
         image_new = Image.fromarray(np.uint8(base_image))
         
-        label[chosen_id[0]] = 1.0 #Add the object we pasted on.  Note:  this may cover other objects and so the labels are noisy
-
         # Save the output
-        file_new = '{}/{}.jpg'.format(save_dir, id)
+        file_new = '{}/{}'.format(save_dir, base_filename)
         image_new.save(file_new)
-        
         filenames.append(file_new)
-        labels.append(label)
+        labels.append(label_new)
     return filenames, labels
 
 def merge_images_parallel(coco, save_dir, ids_background, ids_object, chosen_id, workers = 24):
@@ -236,28 +225,19 @@ def merge_images_parallel(coco, save_dir, ids_background, ids_object, chosen_id,
         
     # Define the worker function
     def merge_images_worker(id, ids_background_split = ids_background_split, ids_object_split = ids_object_split, coco = coco, save_dir = save_dir, chosen_id = chosen_id):
-        names, labels = merge_images(coco, save_dir, ids_background_split[id], ids_object_split[id], chosen_id)
-        with open('tmp-{}.p'.format(id), 'wb') as f:
-            pickle.dump([names, labels], f)
+        return merge_images(coco, save_dir, ids_background_split[id], ids_object_split[id], chosen_id)
         
     # Run
     pool = ThreadPool(processes = workers)
-    pool.map(merge_images_worker, range(workers))
+    out = pool.map(merge_images_worker, range(workers))
     
     # Collect the output
     filenames = []
     labels = []
-    for i in range(workers):
-        with open('tmp-{}.p'.format(i), 'rb') as f:
-            data = pickle.load(f)
-            
-        for j in range(len(data[0])):
-            filenames.append(data[0][j])
-            labels.append(data[1][j])
-    
-    # Save the output
-    with open('{}-info.p'.format(save_dir), 'wb') as f:
-        pickle.dump([filenames, labels], f)
-        
-    # Clean up
-    os.system('rm tmp-*.p')
+    for pair in out:
+        f = pair[0]
+        l = pair[1]
+        for i in range(len(f)):
+            filenames.append(f[i])
+            labels.append(l[i])
+    return filenames, labels
