@@ -110,3 +110,21 @@ class ImageDataset_Paired(VisionDataset):
         
     def __len__(self):
         return len(self.filenames_1)
+
+class ImageDataset_FS(VisionDataset):
+
+    def __init__(self, filenames, labels, contexts):
+        transform = get_transform()
+        super(ImageDataset_FS, self).__init__(None, None, transform, None)
+        self.filenames = filenames
+        self.labels = labels
+        self.contexts = contexts
+        
+    def __getitem__(self, index):
+        img = self.transform(Image.open(self.filenames[index]).convert('RGB'))
+        label = self.labels[index]
+        context = self.contexts[index]
+        return img, label, context
+        
+    def __len__(self):
+        return len(self.filenames)

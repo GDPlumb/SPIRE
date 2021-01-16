@@ -9,10 +9,10 @@ import torch
 import torchvision.models as models
 
 from Config import get_data_dir
-from Misc import load_data_random, load_data_paired
+from Misc import load_data_random, load_data_paired, load_data_fs
 
 sys.path.insert(0, '../Common/')
-from Dataset import ImageDataset, ImageDataset_Paired, my_dataloader
+from Dataset import ImageDataset, ImageDataset_Paired, ImageDataset_FS, my_dataloader
 from Features import Features
 from ResNet import get_model
 from TrainModel import train_model
@@ -99,7 +99,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     ids_train, ids_val = train_test_split(ids, test_size = 0.1)
     
     # Load defaults
-    if 'transfer' in mode.split('-'):
+    if 'transfer' in mode.split('-') or 'tt' in mode.split('-'):
         lr = 0.001
     elif 'tune' in mode.split('-'):
         lr = 0.0001
@@ -137,7 +137,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
             print('Error: bad p_correct for this mode')
             sys.exit(0)
         
-    elif mode in ['rrr-tune', 'cdep-transfer', 'cdep-tune']:
+    elif mode in ['rrr-tune', 'cdep-transfer', 'cdep-tune', 'cdep-tt']:
         name_1 = 'orig'
         name_2 = 'spurious-pixel'
         
@@ -145,18 +145,13 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
             mode_param = 10.0
         elif mode == 'cdep-transfer':
             mode_param = 1.0
-        elif mode == 'cdep-tune': # Not used in final experiments
-            mode_param = 0.1
-            batch_size = 32 # This method/implementation uses more GPU memory
                 
-    elif mode in ['gs-transfer', 'gs-tune']:
+    elif mode in ['gs-transfer', 'gs-tune', 'gs-tt']:
         name_1 = 'orig'
         name_2 = 'main-pixel-paint'
         
-        if mode == 'gs-transfer':
-            mode_param = 10.0
-        elif mode == 'gs-tune': # Not used in final experiments, but used for the comparisons shown.  See HPS_notes.txt
-            mode_param = 10.0
+        if mode == 'gs-tt':
+            mode_param = 1.0
             
     elif mode in ['simple-tune']:
         names = {}
@@ -164,6 +159,9 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         names['just_main'] = {'orig': 1.0}
         names['just_spurious'] = {'orig': 1.0}
         names['neither'] = {'orig': 1.0}
+        
+    elif mode in ['fs-tune']:
+        pass
         
     else:
         print('Error: Unrecognized mode')
@@ -180,13 +178,20 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         batch_size = bs_override
     
     # Setup the data loaders
-    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']:
+    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune', 'gs-tt', 'cdep-transfer', 'cdep-tune', 'cdep-tt']:
         files_1_train, labels_1_train, files_2_train = load_data_paired(ids_train, images, name_1, name_2)
         files_1_val, labels_1_val, files_2_val = load_data_paired(ids_val, images, name_1, name_2)
         
         datasets = {}
         datasets['train'] = ImageDataset_Paired(files_1_train, labels_1_train, files_2_train)
         datasets['val'] = ImageDataset_Paired(files_1_val, labels_1_val, files_2_val)
+    elif mode in ['fs-tune']:
+        files_train, labels_train, contexts_train = load_data_fs(ids_train, images, splits)
+        files_val, labels_val, contexts_val = load_data_fs(ids_val, images, splits)
+
+        datasets = {}
+        datasets['train'] = ImageDataset_FS(files_train, labels_train, contexts_train)
+        datasets['val'] = ImageDataset_FS(files_val, labels_val, contexts_val)
     else:
         files_train, labels_train = load_data_random(ids_train, images, splits, names)
         files_val, labels_val = load_data_random(ids_val, images, splits, names)
@@ -201,25 +206,32 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     
     # Setup the model and optimization process
     parent_transfer = './Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(main, spurious, p_correct, trial)
+    parent_tune = './Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(main, spurious, p_correct, trial)
     if mode == 'initial-transfer':
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained')
     elif mode == 'initial-tune':
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
     elif mode in ['minimal-transfer', 'gs-transfer', 'cdep-transfer']:
         model, optim_params = get_model(mode = 'transfer', parent = parent_transfer)
-        # Setup the feature hook for getting the representations
-        if mode in ['gs-transfer']:
-            feature_hook = Features(requires_grad = True)
-            handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
-    elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-tune', 'simple-tune']:
+    elif mode in ['gs-tt', 'cdep-tt']:
+        model, optim_params = get_model(mode = 'transfer', parent = parent_tune)
+    elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-tune', 'simple-tune', 'fs-tune']:
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
     else:
         print('Train.py: Could not determine trainable parameters')
         sys.exit(0)
+    
+    # Setup the feature hook for getting the representations
+    if mode in ['gs-transfer', 'fs-tune']:
+        feature_hook = Features(requires_grad = True)
+        handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
 
     model.cuda()
 
-    metric_loss = torch.nn.BCEWithLogitsLoss()
+    if mode in ['fs-tune']:
+        metric_loss = torch.nn.BCEWithLogitsLoss(reduction = 'none')
+    else:
+        metric_loss = torch.nn.BCEWithLogitsLoss()
     
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
                         lr_init = lr, select_cutoff = 5, decay_max = 1,

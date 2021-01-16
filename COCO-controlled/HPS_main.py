@@ -10,12 +10,12 @@ main = 'bottle'
 spurious = 'person'
 p_correct = 0.95
 
-modes =['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']
+modes = ['gs-tt', 'cdep-tt']#['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']
 trials = [0, 1, 2, 3]
 num_gpus = 4
 
 def get_mp(mode):
-    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']:
+    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune', 'gs-tt', 'cdep-tt']:
         mp_list = [0.1, 1.0, 10.0, 100.0]
     else:
         mp_list = [0]
@@ -24,7 +24,7 @@ def get_mp(mode):
 def get_lr(mode):
     if 'tune' in mode.split('-'):
         lr_list = [0.0001]
-    elif 'transfer' in mode.split('-'):
+    elif 'transfer' in mode.split('-') or 'tt' in mode.split('-'):
         lr_list = [0.001]
     return lr_list
     

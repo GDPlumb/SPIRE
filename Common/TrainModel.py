@@ -8,6 +8,7 @@ import torch
 import torch.optim as optim
 
 from CDEP import cdep_loss
+from FS import fs_loss
 from GS import gs_loss
 from RRR import rrr_loss
 
@@ -32,6 +33,12 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
     else:
         INPUT_GRAD = False
         GRAD_DURING_VAL = False
+    
+    if mode in ['fs-tune']:
+        FS = True
+        rep_avg_running = None
+    else:
+        FS = False
     
     # Setup the learning rate and optimizer
     
@@ -139,13 +146,22 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                     
                     if INPUT_GRAD:
                         x.requires_grad = True
+                        
+                if FS:
+                    c = data[2]
+                    c = c.to('cuda')
                                         
                 optimizer.zero_grad()
 
                 # forward
                 with torch.set_grad_enabled(phase == 'train' or GRAD_DURING_VAL):
                     pred = model(x)
-                    loss_main = metric_loss(pred, y)
+                    
+                    if FS:
+                        rep = torch.squeeze(feature_hook.features)
+                        loss_main, rep_avg_running = fs_loss(rep, rep_avg_running, model, metric_loss, y, c)
+                    else:
+                        loss_main = metric_loss(pred, y)
                     
                     if mode == 'rrr-tune':
                         loss_reg = rrr_loss(x, x_prime, torch.sigmoid(pred))
