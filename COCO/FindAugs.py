@@ -131,8 +131,8 @@ def eval_2(sizes, deltas, augs,
             print(c, format(totals[c]))
         
     for c in CHARS:
-        #if c in ['B', 'M']: # Auto-v2 differs from Auto-v1 by this single line
-        cost += lambda_diff * torch.abs(totals[c] - deltas[c])
+        if c in ['B', 'M']: # Auto-v2 differs from Auto-v1 by this single line
+            cost += lambda_diff * torch.abs(totals[c] - deltas[c])
         
     # Check that the intervention does not leave traces
     v = augs['B2M'] - (augs['B2S'] + augs['M2N'] + augs['S2N'])
