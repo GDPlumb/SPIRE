@@ -6,7 +6,6 @@ import sys
 
 from Config import get_data_dir, get_data_fold
 from Evaluate import evaluate
-from Search import search
 from Train import train
 
 sys.path.insert(0, '../Common/')
@@ -38,4 +37,3 @@ if __name__ == '__main__':
 
 #        train(mode, trial, model_dir = model_dir)
         evaluate(model_dir, data_dir, coco)
-        search(model_dir, data_dir, coco)

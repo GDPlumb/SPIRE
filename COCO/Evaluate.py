@@ -13,13 +13,6 @@ from LoadData import load_data
 from ModelWrapper import ModelWrapper
 from ResNet import get_model
 
-def get_metrics(acc_1, acc_0, p_1): # Acc | Label = 1, Acc | Label = 0, P(Label = 1)
-    recall = acc_1
-    tp = p_1 * acc_1 # number True Positives
-    fp = (1 - p_1) * (1 - acc_0) # number False Positives
-    precision = tp / max(tp + fp, 1e-8)
-    return recall, precision
-
 def evaluate(model_dir, data_dir, coco, min_samples = 25):
 
     # Load the needed information
@@ -106,35 +99,27 @@ def evaluate(model_dir, data_dir, coco, min_samples = 25):
             
             out['{}-{}'.format(pair, split_name)] = v
             splits_acc[split_name] = v
-            
-        # Compute the 'balanced' precision, recall, and F1
-        # -  We keep P(Main) from the original dataset
-        # -  We then construct a distribution where Spurious is independent from Main
-        # -  We use either 1/2 or P(Spurious) from the original dataset while doing this
-        total = len(splits['both']) + len(splits['just_main']) + len(splits['just_spurious']) + len(splits['neither'])
-        p_main = (len(splits['both']) + len(splits['just_main'])) / total
-        p_spurious = 0.5 #(len(splits['both']) + len(splits['just_spurious'])) / total
-    
+        
+        # Get some common information for computing metrics
+        for key in splits:
+            splits[key] = len(splits[key])
+        total = splits['both'] + splits['just_main'] + splits['just_spurious'] + splits['neither']
+        p_main = (splits['both'] + splits['just_main']) / total
+
         both = splits_acc['both']
         just_main = splits_acc['just_main']
         just_spurious = splits_acc['just_spurious']
         neither = splits_acc['neither']
-        
+
+        # Compute the 'balanced' precision, recall, and F1
+        # -  We keep P(Main) from the original dataset
+        # -  We then construct a distribution where Spurious is independent from Main
+        # -  We use either 1/2 or P(Spurious) from the original dataset while doing this
+        p_spurious = 0.5 #(splits['both'] + splits['just_spurious']) / total
         tp = p_main * (p_spurious * both + (1 - p_spurious) * just_main)
         fp = (1 - p_main) * (p_spurious * (1 - just_spurious)  + (1 - p_spurious) * (1 -  neither))
-        precision = tp / max(tp + fp, 1e-8)
-        recall = p_spurious * both + (1 - p_spurious) * just_main
-        f1 = 2 * precision * recall / max(precision + recall, 1e-8)
-        
+        precision = tp / max(tp + fp, 1e-16)
         out['{}-b-precision'.format(pair)] = precision
-        out['{}-b-recall'.format(pair)] = recall
-        out['{}-b-f1'.format(pair)] = f1
-        
-        # Compute the precision/recall gaps between images with and without Spurious
-        r_with, p_with = get_metrics(both, just_spurious, p_main) # Metrics for images With Spurious
-        r_without, p_without = get_metrics(just_main, neither, p_main) # Metrics for images Without Spurious
-        out['{}-r-gap'.format(pair)] = r_with - r_without
-        out['{}-p-gap'.format(pair)] = p_with - p_without
 
     with open('{}/results.json'.format(model_dir), 'w') as f:
         json.dump(out, f)
