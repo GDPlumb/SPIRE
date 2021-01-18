@@ -124,6 +124,15 @@ def evaluate(model_dir, data_dir, coco, min_samples = 25):
         
         # Compute r-gap (p-gap is hard to interpret when calculated correctly)
         out['{}-r-gap'.format(pair)] = abs(both - just_main)
+        
+        # Evaluation from FS
+        just_spurious_FP = (1 - just_spurious) * splits['just_spurious']
+        neither_FP = (1 - neither) * splits['neither']
+        just_main_TP = just_main * splits['just_main']
+        both_TP = both * splits['both']
+        
+        out['{}-p-with'.format(pair)] = both_TP / (both_TP + just_spurious_FP + neither_FP + 1e-16)
+        out['{}-p-without'.format(pair)] = just_main_TP / (just_main_TP + just_spurious_FP + neither_FP + 1e-16)
 
     with open('{}/results.json'.format(model_dir), 'w') as f:
         json.dump(out, f)
