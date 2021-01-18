@@ -9,9 +9,11 @@ import torch
 
 from Config import get_data_dir, get_data_fold
 from LoadImages import load_images
+from Misc import load_data_fs
 
 sys.path.insert(0, '../Common/')
-from Dataset import ImageDataset, my_dataloader
+from Dataset import ImageDataset, ImageDataset_FS, my_dataloader
+from Features import Features
 from LoadData import load_data
 from ResNet import get_model
 from TrainModel import train_model
@@ -148,7 +150,9 @@ def train(mode, trial,
                 break
         
         indices_preserve = [index] # Zero out all of the other labels to stop the model from learning using them
-        
+    elif mode in ['fs-tune']:
+        pass
+    
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
@@ -156,6 +160,13 @@ def train(mode, trial,
     # Setup the data loaders
     if mode in []:
         pass # Used for methods that pair the real and counterfactual examples
+    elif mode in ['fs-tune']:
+        files_train, labels_train, contexts_train = load_data_fs(ids_train, images)
+        files_val, labels_val, contexts_val = load_data_fs(ids_val, images)
+
+        datasets = {}
+        datasets['train'] = ImageDataset_FS(files_train, labels_train, contexts_train)
+        datasets['val'] = ImageDataset_FS(files_val, labels_val, contexts_val)
     else:
         files_train, labels_train = load_data(ids_train, images, names, indices_preserve = indices_preserve)
         files_val, labels_val = load_data(ids_val, images, names, indices_preserve = indices_preserve)
@@ -172,7 +183,7 @@ def train(mode, trial,
     parent_transfer = './Models/initial-transfer/trial{}/model.pt'.format(trial)
     if mode == 'initial-transfer':
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained', out_features = 91)
-    elif mode in ['initial-tune']:
+    elif mode in ['initial-tune', 'fs-tune']:
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer, out_features = 91)
     elif mode.split('-')[0] == 'partial':
         model, optim_params = get_model(mode = 'transfer', parent = './Models/initial-tune/trial{}/model.pt'.format(trial), out_features = 91)
@@ -180,10 +191,18 @@ def train(mode, trial,
         print('Error: Could not determine trainable parameters')
         sys.exit(0)
 
+    # Setup the feature hook for getting the representations
+    if mode in ['fs-tune']:
+        feature_hook = Features(requires_grad = True)
+        handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
+        
     model.cuda()
 
-    metric_loss = torch.nn.BCEWithLogitsLoss()
-
+    if mode in ['fs-tune']:
+        metric_loss = torch.nn.BCEWithLogitsLoss(reduction = 'none')
+    else:
+        metric_loss = torch.nn.BCEWithLogitsLoss()
+    
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
                         lr_init = lr, select_cutoff = select_cutoff, decay_max = 1,
                         mode = mode, mode_param = mode_param, feature_hook = feature_hook)

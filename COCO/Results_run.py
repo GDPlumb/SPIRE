@@ -35,5 +35,5 @@ if __name__ == '__main__':
 
         coco = COCOWrapper(mode = fold)
 
-#        train(mode, trial, model_dir = model_dir)
+        #train(mode, trial, model_dir = model_dir)
         evaluate(model_dir, data_dir, coco)

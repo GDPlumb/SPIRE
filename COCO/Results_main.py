@@ -10,7 +10,7 @@ if False:
     for i in range(len(classes)):
         modes.append('partial-{}-transfer'.format(i))
 else:
-    modes =  ['initial-tune', 'auto-v1', 'auto-v2']
+    modes =  ['initial-tune', 'auto-v1', 'fs-tune']
     
 trials = [0, 1, 2, 3]
 num_gpus = 4

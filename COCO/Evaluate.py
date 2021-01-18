@@ -105,21 +105,25 @@ def evaluate(model_dir, data_dir, coco, min_samples = 25):
             splits[key] = len(splits[key])
         total = splits['both'] + splits['just_main'] + splits['just_spurious'] + splits['neither']
         p_main = (splits['both'] + splits['just_main']) / total
-
+        
         both = splits_acc['both']
         just_main = splits_acc['just_main']
         just_spurious = splits_acc['just_spurious']
         neither = splits_acc['neither']
 
-        # Compute the 'balanced' precision, recall, and F1
+        # Compute the 'balanced' precision and recall
         # -  We keep P(Main) from the original dataset
         # -  We then construct a distribution where Spurious is independent from Main
         # -  We use either 1/2 or P(Spurious) from the original dataset while doing this
         p_spurious = 0.5 #(splits['both'] + splits['just_spurious']) / total
         tp = p_main * (p_spurious * both + (1 - p_spurious) * just_main)
         fp = (1 - p_main) * (p_spurious * (1 - just_spurious)  + (1 - p_spurious) * (1 -  neither))
-        precision = tp / max(tp + fp, 1e-16)
+        precision = tp / (tp + fp + 1e-16)
         out['{}-b-precision'.format(pair)] = precision
+        out['{}-b-recall'.format(pair)] = p_spurious * both + (1 - p_spurious) * just_main
+        
+        # Compute r-gap (p-gap is hard to interpret when calculated correctly)
+        out['{}-r-gap'.format(pair)] = abs(both - just_main)
 
     with open('{}/results.json'.format(model_dir), 'w') as f:
         json.dump(out, f)
