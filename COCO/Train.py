@@ -18,9 +18,6 @@ from LoadData import load_data
 from ResNet import get_model
 from TrainModel import train_model
 
-with open('./COCO_cats.json', 'r') as f: #This is a json copy of coco.loadCats(coco.getCatIds())
-    cats = json.load(f)
-
 def get_counts(y_hat, y):
     TP = 0
     FP = 0
@@ -38,21 +35,6 @@ def get_counts(y_hat, y):
            FN += 1
 
     return [TP, FP, TN, FN]
-
-def metric_acc_batch(y_hat, y, cats = cats):
-    y_hat = y_hat.cpu().data.numpy()
-    y_hat = 1 * (y_hat >= 0)
-    y = y.cpu().data.numpy()
-    
-    out = np.zeros((len(cats), 4))
-    c = 0
-    for cat in cats:
-        index = cat['id']
-        # BUG:  The 'squeeze' here might cause this to crash for a batch size of 1
-        out[c, :] = get_counts(y_hat[:, index], y[:, index]) #get_counts(np.squeeze(y_hat[:, index]), np.squeeze(y[:, index]))
-        c += 1
-     
-    return out
     
 def metric_acc_agg(counts_list = None):
     if counts_list is None:
@@ -115,6 +97,10 @@ def train(mode, trial,
     feature_hook = None
     indices_preserve = None
     
+    with open('./COCO_cats.json', 'r') as f: #This is a json copy of coco.loadCats(coco.getCatIds())
+        cats = json.load(f)
+    cats_chosen = cats
+    
     # Load the the data specified by mode for each Image ID
     if mode in ['initial-transfer', 'initial-tune']:
         names = ['orig']
@@ -147,6 +133,7 @@ def train(mode, trial,
         for cat in cats:
             if cat['name'] == main.replace('+', ' '):
                 index = int(cat['id'])
+                cats_chosen = [cat]
                 break
         
         indices_preserve = [index] # Zero out all of the other labels to stop the model from learning using them
@@ -156,6 +143,20 @@ def train(mode, trial,
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
+        
+    def metric_acc_batch(y_hat, y, cats = cats_chosen):
+        y_hat = y_hat.cpu().data.numpy()
+        y_hat = 1 * (y_hat >= 0)
+        y = y.cpu().data.numpy()
+        
+        out = np.zeros((len(cats), 4))
+        c = 0
+        for cat in cats:
+            index = cat['id']
+            out[c, :] = get_counts(y_hat[:, index], y[:, index])
+            c += 1
+         
+        return out
         
     # Setup the data loaders
     if mode in []:
