@@ -8,7 +8,7 @@ from torchvision import transforms
 from torchvision.transforms.functional import pad
 
 # Define the dataset and dataloader
-def my_dataloader(dataset, batch_size = 64, num_workers = 4):
+def my_dataloader(dataset, batch_size = 64, num_workers = 3):
     return torch.utils.data.DataLoader(dataset, batch_size = batch_size, shuffle = True, num_workers = num_workers, pin_memory = True)
     
 def get_padding(image):
