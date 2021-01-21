@@ -54,6 +54,7 @@ def evaluate(model_dir, data_dir, min_size = 25, challenge_info = None):
         label2 = challenge_info[1]
         spurious = challenge_info[2]
         
+        avg = 0.0
         for config in [('{}+{}'.format(label1, spurious), 1, 'c-1s'), ('{}-{}'.format(label1, spurious), 1, 'c-1ns'), ('{}+{}'.format(label2, spurious), 0, 'c-0s'), ('{}-{}'.format(label2, spurious), 0, 'c-0ns')]:
             folder = config[0]
             label = config[1]
@@ -70,8 +71,10 @@ def evaluate(model_dir, data_dir, min_size = 25, challenge_info = None):
 
             y_hat, y_true = wrapper.predict_dataset(dataloader_tmp)
             v = np.mean(1 * (y_hat >= 0.5) == y_true)
+            avg += v
                     
             out[name] = v
+        out['cs-avg'] = avg / 4
     
     
     with open('{}/results.json'.format(model_dir), 'w') as f:

@@ -10,10 +10,10 @@ import torch
 import torchvision.models as models
 
 from Config import get_data_dir
-from Misc import load_data_random
+from Misc import load_data_random, load_data_fs
 
 sys.path.insert(0, '../Common/')
-from Dataset import ImageDataset, my_dataloader
+from Dataset import ImageDataset, ImageDataset_FS, my_dataloader
 from Features import Features
 from ResNet import get_model
 from TrainModel import train_model
@@ -108,6 +108,8 @@ def train(mode, label1, label2, spurious, trial,
         names['1ns'] = {'orig': 1.0, '1ns+1s': 1.0}
         names['0s'] = {'orig': 1.0, 'spurious-box': 1.0}
         names['0ns'] = {'orig': 1.0, '0ns+1s': 1.0}
+    elif mode in ['fs-tune']:
+        pass
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
@@ -125,6 +127,13 @@ def train(mode, label1, label2, spurious, trial,
     # Setup the data loaders
     if mode in []:
         pass # Used for methods that pair the real and counterfactual examples
+    elif mode in ['fs-tune']:
+        files_train, labels_train, contexts_train = load_data_fs(ids_train, images, splits)
+        files_val, labels_val, contexts_val = load_data_fs(ids_val, images, splits)
+
+        datasets = {}
+        datasets['train'] = ImageDataset_FS(files_train, labels_train, contexts_train)
+        datasets['val'] = ImageDataset_FS(files_val, labels_val, contexts_val)
     else:
         files_train, labels_train = load_data_random(ids_train, images, splits, names)
         files_val, labels_val = load_data_random(ids_val, images, splits, names)
@@ -141,15 +150,23 @@ def train(mode, label1, label2, spurious, trial,
     parent_transfer = './Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(label1, label2, spurious, trial)
     if mode == 'initial-transfer':
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained')
-    elif mode in ['initial-tune', 'removed-tune', 'added-tune', 'combined-tune']:
+    elif mode in ['initial-tune', 'removed-tune', 'added-tune', 'combined-tune', 'fs-tune']:
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
     else:
         print('Train.py: Could not determine trainable parameters')
         sys.exit(0)
+    
+    # Setup the feature hook for getting the representations
+    if mode in ['fs-tune']:
+        feature_hook = Features(requires_grad = True)
+        handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
 
     model.cuda()
 
-    metric_loss = torch.nn.BCEWithLogitsLoss()
+    if mode in ['fs-tune']:
+        metric_loss = torch.nn.BCEWithLogitsLoss(reduction = 'none')
+    else:
+        metric_loss = torch.nn.BCEWithLogitsLoss()
     
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
                         lr_init = lr, select_cutoff = 5, decay_max = 1,

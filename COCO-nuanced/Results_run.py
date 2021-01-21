@@ -27,6 +27,6 @@ if __name__ == '__main__':
         data_dir = '{}/{}-{}/{}/val'.format(get_data_dir(), label1, label2, spurious)
         print(model_dir)
         
-        train(mode, label1, label2, spurious, trial, model_dir = model_dir)
+        #train(mode, label1, label2, spurious, trial, model_dir = model_dir)
         evaluate(model_dir, data_dir, challenge_info = (label1, label2, spurious))
-        search(model_dir, data_dir)
+        #search(model_dir, data_dir)
