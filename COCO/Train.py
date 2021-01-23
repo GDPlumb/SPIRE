@@ -194,7 +194,7 @@ def train(mode, trial,
 
     # Setup the feature hook for getting the representations
     if mode in ['fs-tune']:
-        feature_hook = Features(requires_grad = True)
+        feature_hook = Features()
         handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
         
     model.cuda()

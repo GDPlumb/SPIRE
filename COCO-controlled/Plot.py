@@ -217,6 +217,6 @@ if __name__ == '__main__':
     
     try:
         if sys.argv[3] == 'custom':
-            plot(main, spurious, subdir = 'main', modes_specified = ['initial-tune', 'minimal-tune', 'rrr-tune', 'gs-tt', 'cdep-transfer', 'fs-tune'])
+            plot(main, spurious, subdir = 'main', modes_specified = ['initial-tune', 'minimal-tune', 'rrr-tune', 'cdep-tt', 'gs-tt', 'fs-tune'])
     except IndexError:
         pass

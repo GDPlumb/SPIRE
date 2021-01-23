@@ -71,33 +71,44 @@ def load_data_random(ids, images, splits, splits_data):
     labels = labels.reshape((labels.shape[0], 1))
     
     return files, labels
-
-def load_data_paired(ids, images, name_1, name_2):
-    files_1 = []
-    labels_1 = []
-    files_2 = []
-    for id in ids:
-        
-        # name_1 is not optional: crash if it is missing
-        info = images[id][name_1]
-        files_1.append(info[0])
-        labels_1.append(info[1])
-        
-        # name_2 is optional:  default to name_1 info if missing
-        try:
-            info = images[id][name_2]
-        except KeyError:
-            pass
-        
-        files_2.append(info[0])
-
-    labels_1 = np.array(labels_1, dtype = np.float32)
-    labels_1 = labels_1.reshape((labels_1.shape[0], 1))
     
-    return files_1, labels_1, files_2
+def load_data_paired(ids, images, name_cf, aug = False):
 
+    files = []
+    labels = []
+    files_cf = []
+    labels_cf= []
+    
+    for id in ids:
+        info = images[id]['orig']
+        files.append(info[0])
+        labels.append(info[1])
+        
+        try:
+            info_cf = images[id][name_cf]
+            
+            files_cf.append(info_cf[0])
+            labels_cf.append(info_cf[1])
+            
+            if aug:
+                files.append(info_cf[0])
+                labels.append(info_cf[1])
+                files_cf.append(info[0])
+                labels_cf.append(info[1])
+        
+        except KeyError: # There is no counterfactual for this image
+            files_cf.append(info[0])
+            labels_cf.append(info[1])
 
-def load_data_fs(ids, images, splits):
+    labels = np.array(labels, dtype = np.float32)
+    labels = labels.reshape((labels.shape[0], 1))
+    
+    labels_cf = np.array(labels_cf, dtype = np.float32)
+    labels_cf = labels_cf.reshape((labels_cf.shape[0], 1))
+    
+    return files, labels, files_cf, labels_cf
+
+def load_data_fs(ids, images, splits, keys_0, keys_1):
     files = []
     labels = []
     contexts = [] #1 -> spurious (ie, in context), 0 -> no spurious (ie, out of context)
@@ -106,13 +117,14 @@ def load_data_fs(ids, images, splits):
             if id in splits[key]:
                 files.append(images[id]['orig'][0])
                 labels.append(images[id]['orig'][1])
-                if key in ['just_main', 'neither']:
+                if key in keys_0:
                     contexts.append(0)
-                elif key in ['both', 'just_spurious']:
+                elif key in keys_1:
                     contexts.append(1)
                 else:
                     print('load_data_fs: unexpected key')
-
+                    sys.exit(0)
+    
     labels = np.array(labels, dtype = np.float32)
     labels = labels.reshape((labels.shape[0], 1))
     

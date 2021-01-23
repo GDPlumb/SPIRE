@@ -18,8 +18,9 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                 select_metric = 'acc', select_metric_index = 0, select_min = 0.001, select_cutoff = 5, # Model selection configuration
                 mode = None, mode_param = None, feature_hook = None,
                 name = 'history'):
-                
-    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']:
+  
+    # Mode specific configuration
+    if mode in ['rrr-tune', 'cdep-transfer', 'cdep-tt', 'cdep-tune', 'gs-transfer', 'gs-tt', 'gs-tune']:
         REG = True
     else:
         REG = False
@@ -27,7 +28,7 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
     if mode in ['rrr-tune', 'gs-tune']:
         INPUT_GRAD = True
         GRAD_DURING_VAL = True
-    elif mode in ['gs-transfer']:
+    elif mode in ['gs-transfer', 'gs-tt']:
         INPUT_GRAD = False
         GRAD_DURING_VAL = True
     else:
@@ -35,18 +36,13 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
         GRAD_DURING_VAL = False
     
     if mode in ['fs-tune']:
-        FS = True
         rep_avg_running = None
-    else:
-        FS = False
     
     # Setup the learning rate and optimizer
-    
     lr = lr_init
     optimizer = optim.Adam(params, lr = lr_init)
     
     # Setup the data logging
-    
     loss_history = {}
     loss_history['train'] = []
     loss_history['val'] = []
@@ -65,7 +61,6 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
     decay_history = []
     
     # Setup the training markers
-    
     select_wts = copy.deepcopy(model.state_dict())
     if select_metric == 'acc':
         select_value = 0
@@ -92,12 +87,10 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
     time = -1
     
     # Train
-    
     os.system('rm -rf {}'.format(name))
     os.system('mkdir {}'.format(name))
     
     while True:
-    
         # Check convergence and update the learning rate accordingly
         time += 1
         
@@ -144,10 +137,13 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                     x_prime = data[2]
                     x_prime = x_prime.to('cuda')
                     
+                    y_prime = data[3]
+                    y_prime = y_prime.to('cuda')
+                    
                     if INPUT_GRAD:
                         x.requires_grad = True
                         
-                if FS:
+                elif mode in ['fs-tune']:
                     c = data[2]
                     c = c.to('cuda')
                                         
@@ -157,7 +153,7 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                 with torch.set_grad_enabled(phase == 'train' or GRAD_DURING_VAL):
                     pred = model(x)
                     
-                    if FS:
+                    if mode in ['fs-tune']:
                         rep = torch.squeeze(feature_hook.features)
                         loss_main, rep_avg_running = fs_loss(rep, rep_avg_running, model, metric_loss, y, c)
                     else:
@@ -166,20 +162,23 @@ def train_model(model, params, dataloaders, metric_loss, metric_acc_batch, metri
                     if mode == 'rrr-tune':
                         loss_reg = rrr_loss(x, x_prime, torch.sigmoid(pred))
                         loss = loss_main + mode_param * loss_reg
-                    elif mode == 'gs-transfer':
+                    
+                    elif mode in ['gs-transfer', 'gs-tt']:
                         rep = feature_hook.features
                         
                         pred_prime = model(x_prime)
                         rep_prime = feature_hook.features
                         
-                        loss_reg = gs_loss(rep, rep_prime, torch.sigmoid(pred))
+                        loss_reg = gs_loss(rep, rep_prime, y, y_prime, torch.sigmoid(pred))
                         loss = loss_main + mode_param * loss_reg
                     elif mode == 'gs-tune':
-                        loss_reg = gs_loss(x, x_prime, torch.sigmoid(pred))
+                        loss_reg = gs_loss(x, x_prime, y, y_prime, torch.sigmoid(pred))
                         loss = loss_main + mode_param * loss_reg
-                    elif mode in ['cdep-transfer', 'cdep-tune']:
+                        
+                    elif mode in ['cdep-transfer', 'cdep-tt', 'cdep-tune']:
                         loss_reg = cdep_loss(x, x_prime, model)
                         loss = loss_main + mode_param * loss_reg
+                    
                     else:
                         loss = loss_main
                     

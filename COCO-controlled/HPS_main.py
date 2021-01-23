@@ -5,12 +5,13 @@ import numpy as np
 import os
 from subprocess import Popen
 import sys
+import time
 
 main = 'bottle'
 spurious = 'person'
 p_correct = 0.95
 
-modes = ['gs-tt', 'cdep-tt']#['rrr-tune', 'gs-transfer', 'gs-tune', 'cdep-transfer', 'cdep-tune']
+modes = ['cdep-tt']
 trials = [0, 1, 2, 3]
 num_gpus = 4
 
@@ -77,7 +78,11 @@ for mode in modes:
         command = 'CUDA_VISIBLE_DEVICES={} python HPS_run.py {}'.format(i, i)
         commands.append(command)
 
-    procs = [Popen(i, shell = True) for i in commands]
+    procs = []
+    for i in commands:
+        procs.append(Popen(i, shell = True))
+        time.sleep(5.0)
+
     for p in procs:
        p.wait()
 

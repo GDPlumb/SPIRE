@@ -98,27 +98,42 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     # By splitting on Image ID, we ensure all counterfactual version of an image are in the same fold
     ids_train, ids_val = train_test_split(ids, test_size = 0.1)
     
-    # Load defaults
-    if 'transfer' in mode.split('-') or 'tt' in mode.split('-'):
+    # Get configuration from mode
+    mode_split = mode.split('-')
+    
+    TRANS = 'transfer' in mode_split
+    TUNE = 'tune' in mode_split
+    TT = 'tt' in mode_split
+    
+    INIT = 'initial' in mode_split
+    MIN = 'minimal' in mode_split
+    SIM = 'simple' in mode_split
+    RRR = 'rrr' in mode_split
+    CDEP = 'cdep' in mode_split
+    GS = 'gs' in mode_split
+    FS = 'fs' in mode_split
+    
+    # Load default parameters
+    if TRANS or TT:
         lr = 0.001
-    elif 'tune' in mode.split('-'):
+    elif TUNE:
         lr = 0.0001
     else:
-        lr = None
+        print('Error: Could not model ancestry and trainable parameters')
+        sys.exit(0)
     
     mode_param = 0.0
     batch_size = 64
-    feature_hook = None
-
-    # Load the the data specified by mode for each Image ID
-    if mode in ['initial-transfer', 'initial-tune']:
+    
+    # Load the mode specific information
+    if INIT:
         names = {}
         names['both'] = {'orig': 1.0}
         names['just_main'] = {'orig': 1.0}
         names['just_spurious'] = {'orig': 1.0}
         names['neither'] = {'orig': 1.0}
         
-    elif mode in ['minimal-transfer', 'minimal-tune']:
+    elif MIN:
         if p_correct > 0.5:
             p_sample = 2 - 1 / p_correct
             names = {}
@@ -136,38 +151,38 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         else:
             print('Error: bad p_correct for this mode')
             sys.exit(0)
-        
-    elif mode in ['rrr-tune', 'cdep-transfer', 'cdep-tune', 'cdep-tt']:
-        name_1 = 'orig'
-        name_2 = 'spurious-pixel'
-        
-        if mode == 'rrr-tune':
-            mode_param = 10.0
-        elif mode == 'cdep-transfer':
-            mode_param = 1.0
-                
-    elif mode in ['gs-transfer', 'gs-tune', 'gs-tt']:
-        name_1 = 'orig'
-        name_2 = 'main-pixel-paint'
-        
-        if mode == 'gs-tt':
-            mode_param = 1.0
             
-    elif mode in ['simple-tune']:
+    elif SIM:
         names = {}
         names['both'] = {'orig': 1.0, 'spurious-box': 1.0}
         names['just_main'] = {'orig': 1.0}
         names['just_spurious'] = {'orig': 1.0}
         names['neither'] = {'orig': 1.0}
         
-    elif mode in ['fs-tune']:
-        pass
+    elif RRR:
+        name_cf = 'spurious-pixel'
+        if TUNE:
+            mode_param = 10.0
+        
+    elif CDEP:
+        name_cf = 'spurious-pixel'
+        if TT:
+            mode_param = 1.0
+                
+    elif GS:
+        name_cf = 'main-pixel-paint'
+        if TT:
+            mode_param = 100.0
+        
+    elif FS:
+        keys_0 = ['just_main', 'neither']
+        keys_1 = ['both', 'just_spurious']
         
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
         
-    # Apply over-rides
+    # Apply parameter overrides
     if mp_override is not None:
         mode_param = mp_override
         
@@ -178,16 +193,20 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         batch_size = bs_override
     
     # Setup the data loaders
-    if mode in ['rrr-tune', 'gs-transfer', 'gs-tune', 'gs-tt', 'cdep-transfer', 'cdep-tune', 'cdep-tt']:
-        files_1_train, labels_1_train, files_2_train = load_data_paired(ids_train, images, name_1, name_2)
-        files_1_val, labels_1_val, files_2_val = load_data_paired(ids_val, images, name_1, name_2)
+    if RRR or CDEP or GS:
+        if not GS:
+            files_train, labels_train, files_cf_train, labels_cf_train = load_data_paired(ids_train, images, name_cf)
+            files_val, labels_val, files_cf_val, labels_cf_val = load_data_paired(ids_val, images, name_cf)
+        else:
+            files_train, labels_train, files_cf_train, labels_cf_train = load_data_paired(ids_train, images, name_cf, aug = True)
+            files_val, labels_val, files_cf_val, labels_cf_val = load_data_paired(ids_val, images, name_cf, aug = True)
         
         datasets = {}
-        datasets['train'] = ImageDataset_Paired(files_1_train, labels_1_train, files_2_train)
-        datasets['val'] = ImageDataset_Paired(files_1_val, labels_1_val, files_2_val)
-    elif mode in ['fs-tune']:
-        files_train, labels_train, contexts_train = load_data_fs(ids_train, images, splits)
-        files_val, labels_val, contexts_val = load_data_fs(ids_val, images, splits)
+        datasets['train'] = ImageDataset_Paired(files_train, labels_train, files_cf_train, labels_cf_train)
+        datasets['val'] = ImageDataset_Paired(files_val, labels_val, files_cf_val, labels_cf_val)
+    elif FS:
+        files_train, labels_train, contexts_train = load_data_fs(ids_train, images, splits, keys_0, keys_1)
+        files_val, labels_val, contexts_val = load_data_fs(ids_val, images, splits, keys_0, keys_1)
 
         datasets = {}
         datasets['train'] = ImageDataset_FS(files_train, labels_train, contexts_train)
@@ -211,34 +230,39 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained')
     elif mode == 'initial-tune':
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
-    elif mode in ['minimal-transfer', 'gs-transfer', 'cdep-transfer']:
+    elif TRANS:
         model, optim_params = get_model(mode = 'transfer', parent = parent_transfer)
-    elif mode in ['gs-tt', 'cdep-tt']:
+    elif TT:
         model, optim_params = get_model(mode = 'transfer', parent = parent_tune)
-    elif mode in ['minimal-tune', 'rrr-tune', 'gs-tune', 'cdep-tune', 'simple-tune', 'fs-tune']:
+    elif TUNE:
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
-    else:
-        print('Train.py: Could not determine trainable parameters')
-        sys.exit(0)
     
     # Setup the feature hook for getting the representations
-    if mode in ['gs-transfer', 'fs-tune']:
+    # Warning:  this is specific to ResNet18
+    if GS and (TRANS or TT):
         feature_hook = Features(requires_grad = True)
-        handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
+        handle = list(model.modules())[66].register_forward_hook(feature_hook)
+    elif FS:
+        feature_hook = Features()
+        handle = list(model.modules())[66].register_forward_hook(feature_hook)
+    else:
+        feature_hook = None
 
-    model.cuda()
-
-    if mode in ['fs-tune']:
+    # Setup the loss
+    if FS:
         metric_loss = torch.nn.BCEWithLogitsLoss(reduction = 'none')
     else:
         metric_loss = torch.nn.BCEWithLogitsLoss()
     
+    # Train
+    model.cuda()
     model = train_model(model, optim_params, dataloaders, metric_loss, metric_acc_batch, metric_acc_agg, name = name,
                         lr_init = lr, select_cutoff = 5, decay_max = 1,
                         mode = mode, mode_param = mode_param, feature_hook = feature_hook)
     torch.save(model.state_dict(), '{}.pt'.format(name))
     
-    os.system('rm -rf {}'.format(name)) # Clean up the model history saved during training
+    # Clean up the model history saved during training
+    os.system('rm -rf {}'.format(name))
 
 if __name__ == '__main__':
     

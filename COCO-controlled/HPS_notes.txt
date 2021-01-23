@@ -9,10 +9,6 @@ RRR
 -  As a result, we will use the next best weight of 10
 
 GS
--  The best accuracy was with a weight of 1.0 and fine-tuning
--  However, when we ran this for bottle-person, this model behaved almost identically to initial-tune in terms of both the accuracy and the search results
--  Two ways to make the regularizer more effective would be to switch to transfer learning or to increase the regularization weight
--  Given that, the next most accurate setting was to transfer learn from the initial fine-tuned model with a weight of 1.0
-
+-  The best accuracy was with a weight of 100.0 and transfer learning the fine tuned model
 CDEP
--  The best accuracy result was with a weight of 1 and transfer learning, so this is what we will use for our experiments
+-  The best accuracy result was with a weight of 1.0 and transfer learning the fine tuned model

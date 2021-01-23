@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+import time
 
 from Config import get_data_dir
 from Evaluate import evaluate
@@ -32,3 +33,5 @@ if __name__ == '__main__':
                 lr_override = learning_rate, mp_override = mode_param, bs_override = batch_size,
                 model_dir = model_dir)
         evaluate(model_dir, data_dir)
+    
+        time.sleep(5.0)

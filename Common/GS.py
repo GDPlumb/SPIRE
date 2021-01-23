@@ -1,11 +1,17 @@
 
 import torch
 
-def gs_loss(rep, rep_prime, prob):
+def gs_loss(rep, rep_prime, y, y_prime, prob):
 
     n = rep.shape[0]
     
-    grad_data = rep - rep_prime
+    d_rep = rep_prime - rep
+    d_rep = torch.reshape(d_rep, (n, -1))
+    
+    d_y = y_prime - y
+    d_y = torch.reshape(d_y, (n, -1))
+
+    grad_data = d_y * d_rep
     grad_data = torch.reshape(grad_data, (n, -1))
     grad_data = torch.nn.functional.normalize(grad_data)
             
