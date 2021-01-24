@@ -1,0 +1,30 @@
+Main,Spurious,P(Main),P(Spurious),P(Spurious|Main),bias
+tie,cat,0.032,0.035,0.012,-0.66
+couch,person,0.037,0.542,0.506,-0.067
+hair drier,person,0.002,0.542,0.519,-0.043
+toothbrush,person,0.009,0.542,0.536,-0.011
+bird,sheep,0.027,0.013,0.013,0.004
+knife,person,0.037,0.542,0.546,0.006
+donut,person,0.013,0.542,0.548,0.011
+hot dog,person,0.01,0.542,0.566,0.045
+bench,elephant,0.047,0.018,0.02,0.11
+remote,person,0.026,0.542,0.669,0.234
+cell phone,person,0.041,0.542,0.797,0.471
+frisbee,person,0.018,0.542,0.834,0.538
+handbag,person,0.058,0.542,0.91,0.678
+tie,person,0.032,0.542,0.953,0.759
+sports ball,person,0.036,0.542,0.961,0.773
+snowboard,person,0.014,0.542,0.981,0.809
+skateboard,person,0.029,0.542,0.983,0.814
+skis,person,0.026,0.542,0.988,0.822
+baseball bat,person,0.021,0.542,0.988,0.824
+baseball glove,person,0.022,0.542,0.99,0.826
+tennis racket,person,0.029,0.542,0.99,0.827
+dog,sheep,0.037,0.013,0.026,1.047
+truck,airplane,0.052,0.025,0.105,3.164
+bowl,dining table,0.06,0.1,0.478,3.772
+sandwich,dining table,0.02,0.1,0.567,4.666
+spoon,dining table,0.03,0.1,0.593,4.921
+knife,dining table,0.037,0.1,0.632,5.32
+frisbee,dog,0.018,0.037,0.239,5.435
+fork,dining table,0.03,0.1,0.756,6.556
