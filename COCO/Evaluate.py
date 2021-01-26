@@ -122,17 +122,9 @@ def evaluate(model_dir, data_dir, coco, min_samples = 25):
         out['{}-b-precision'.format(pair)] = precision
         out['{}-b-recall'.format(pair)] = p_spurious * both + (1 - p_spurious) * just_main
         
-        # Compute r-gap (p-gap is hard to interpret when calculated correctly)
+        # Compute the "gap" metrics
         out['{}-r-gap'.format(pair)] = abs(both - just_main)
-        
-        # Evaluation from FS
-        just_spurious_FP = (1 - just_spurious) * splits['just_spurious']
-        neither_FP = (1 - neither) * splits['neither']
-        just_main_TP = just_main * splits['just_main']
-        both_TP = both * splits['both']
-        
-        out['{}-p-with'.format(pair)] = both_TP / (both_TP + just_spurious_FP + neither_FP + 1e-16)
-        out['{}-p-without'.format(pair)] = just_main_TP / (just_main_TP + just_spurious_FP + neither_FP + 1e-16)
+        out['{}-h-gap'.format(pair)] = abs(neither - just_spurious)
 
     with open('{}/results.json'.format(model_dir), 'w') as f:
         json.dump(out, f)
