@@ -1,7 +1,9 @@
 
 import json
+import numpy as np
 import os
 from subprocess import Popen
+import time
 
 if False:
     with open('./FindAugs/classes.json', 'r') as f:
@@ -44,6 +46,10 @@ for i in range(num_gpus):
     command = 'CUDA_VISIBLE_DEVICES={} python Results_run.py {}'.format(i, i)
     commands.append(command)
 
-procs = [Popen(i, shell = True) for i in commands]
+procs = []
+for i in commands:
+    procs.append(Popen(i, shell = True))
+    time.sleep(np.random.uniform(4, 6))
+    
 for p in procs:
    p.wait()

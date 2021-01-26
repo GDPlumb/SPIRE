@@ -29,72 +29,6 @@ def apply_aug(sizes, deltas):
         out[c] = sizes[c] + deltas[c]
     return out
     
-def dist_metrics(sizes):
-    
-    B = sizes['B']
-    M = sizes['M']
-    S = sizes['S']
-    N = sizes['N']
-    
-    P_M = (B + M) / (B + M + S + N)
-    P_S = (B + S) / (B + M + S + N)
-    
-    P_S_given_M = B / (B + M)
-    P_S_given_not_M = S / (S + N)
-
-    return P_M, P_S, P_S_given_M, P_S_given_not_M
-
-def eval_1(sizes, deltas,
-        T_uses_S = False,
-        lambda_main = 2, lambda_ind = 2, lambda_reg = 0.001,
-        verbose = False):
-    
-    if verbose:
-        print('Deltas')
-        for c in CHARS:
-            print(c, format(deltas[c]))
-
-    P_M, P_S, _, _ = dist_metrics(sizes)
-    if T_uses_S:
-        T = P_S
-    else:
-        T = torch.tensor(0.5)
-
-    sizes_aug = apply_aug(sizes, deltas)
-    if verbose:
-        print('Augmented Sizes')
-        for c in CHARS:
-            print(c, format(sizes_aug[c]))
-    
-    P_M_new, _, P_S_given_M, P_S_given_not_M = dist_metrics(sizes_aug)
-    
-    if verbose:
-        print('Analysis')
-        
-    cost = torch.tensor(0.0)
-    
-    v = P_M_new - P_M
-    if verbose:
-        print('P(M) bias', format(v))
-    cost += lambda_main * torch.abs(v)
-    
-    v = P_S_given_M - T
-    if verbose:
-        print('P(S | M) bias', format(v))
-    cost += lambda_ind * torch.abs(v)
- 
-    v = P_S_given_not_M - T
-    if verbose:
-        print('P(S | !M) bias', format(v))
-    cost += lambda_ind * torch.abs(v)
-    
-    cost += lambda_reg * (deltas['B'] + deltas['N'])
- 
-    if verbose:
-        print('Cost', format(cost))
-    
-    return cost
-    
 def get_totals(augs):
     totals = {}
     for c in CHARS:
@@ -106,8 +40,8 @@ def get_totals(augs):
         
     return totals
     
-def eval_2(sizes, deltas, augs,
-            lambda_size = 100.0, lambda_diff = 5.0, lambda_remove = 0.1, lambda_add = 0.1,
+def eval_augs(sizes, deltas, augs,
+            lambda_size = 100.0, lambda_diff = 10.0, lambda_remove = 1.0, lambda_add = 1.0,
             verbose = False):
             
     if verbose:
@@ -175,7 +109,9 @@ if __name__ == '__main__':
 
         sys.stdout = open('{}/out.txt'.format(save_dir), 'w')
 
-        # Step 1:  Find how many images to add to each split
+        print()
+        print('Finding how many images to add to each split')
+        
         with open('{}/train/splits/{}.json'.format(get_data_dir(), pair), 'r') as f:
             splits = json.load(f)
 
@@ -183,50 +119,53 @@ if __name__ == '__main__':
         for key in splits:
             splits[key] = len(splits[key])
             n += splits[key]
-
+        
+        B = splits['both'] / n
+        M = splits['just_main'] / n
+        S = splits['just_spurious'] / n
+        N = splits['neither'] / n
+        
         sizes = {}
-        sizes['B'] = torch.tensor(splits['both'] / n)
-        sizes['M'] = torch.tensor(splits['just_main'] / n)
-        sizes['S'] = torch.tensor(splits['just_spurious'] / n)
-        sizes['N'] = torch.tensor(splits['neither'] / n)
-
-        print()
-        print('Finding how many images to add to each split')
+        sizes['B'] = B
+        sizes['M'] = M
+        sizes['S'] = S
+        sizes['N'] = N
         print('Sizes')
         for c in CHARS:
-            print(c, format(sizes[c]))
+            print(c, np.round(sizes[c], 3))
+        print('P(Main)', np.round(B + M, 3))
 
         deltas = {}
-        params = []
-        for i, v in enumerate([0.0, 0.0, 0.0, 0.0]):
-            deltas[CHARS[i]] = torch.tensor(v, requires_grad = True)
-            params.append(deltas[CHARS[i]])
+        for c in CHARS:
+            deltas[c] = 0.0
 
-        opt = Adam(params, lr = 0.0005)
-        hist = []
-        for i in range(3000):
-            cost = eval_1(sizes, deltas)
-            hist.append(cost.item())
-
-            opt.zero_grad()
-            cost.backward()
-            opt.step()
-
-            with torch.no_grad():
-                for param in params:
-                    param.clamp_(min = 0)
-
-        plt.scatter(list(range(len(hist))), hist)
-        plt.savefig('{}/Step1.png'.format(save_dir))
-        plt.close()
-
-        eval_1(sizes, deltas, verbose = True)
+        # Sets P(Spurious|Main) = 0.5
+        if M > B:
+            diff = M - B
+            deltas['B'] = diff
+        else:
+            diff = B - M
+            deltas['M'] = diff
+        
+        # Restore P(Main) while setting P(Spurious|not Main) = 0.5
+        P_m = B + M
+        P_not_m = S + N
+        target = P_not_m * (P_m + diff) / P_m
+        if N > target / 2:
+            deltas['S'] = target - S - N
+        elif S > target / 2:
+            deltas['N'] = target - S - N
+        else:
+            deltas['S'] = target/ 2 - S
+            deltas['N'] = target / 2 - N
+        
+        print('Deltas')
+        for c in CHARS:
+            print(c, np.round(deltas[c], 3))
 
         # Step 2:  Find a sampling procedure to fulfill that order
         print()
         print('Finding how to sample to do that')
-        for c in CHARS:
-            deltas[c].requires_grad = False
 
         augs = {}
         params = []
@@ -237,7 +176,7 @@ if __name__ == '__main__':
         opt = Adam(params, lr = 0.001)
         hist = []
         for i in range(2000):
-            cost = eval_2(sizes, deltas, augs)
+            cost = eval_augs(sizes, deltas, augs)
             hist.append(cost.item())
 
             opt.zero_grad()
@@ -249,10 +188,10 @@ if __name__ == '__main__':
                     param.clamp_(min = 0)
 
         plt.scatter(list(range(len(hist))), hist)
-        plt.savefig('{}/Step2.png'.format(save_dir))
+        plt.savefig('{}/eval_augs.png'.format(save_dir))
         plt.close()
 
-        eval_2(sizes, deltas, augs, verbose = True)
+        eval_augs(sizes, deltas, augs, verbose = True)
 
         # Summarize the results
         totals = get_totals(augs)
@@ -263,6 +202,8 @@ if __name__ == '__main__':
         print('Augmented Sizes')
         for c in CHARS:
             print(c, format(sizes_aug[c]))
+        p_m = (sizes_aug['B'] + sizes_aug['M']) / (sizes_aug['B'] + sizes_aug['M'] + sizes_aug['S'] + sizes_aug['N'])
+        print('P(Main)', np.round(p_m.data.numpy(), 3))
         print('Sampling Probabilities')
         probs = {}
         for key in augs:
