@@ -8,9 +8,9 @@ import time
 # 'bottle person', 'bowl person', 'car person', 'chair person', 'cup person', 'dining+table person', 'bottle cup', 'bowl cup', 'chair cup', 'bottle dining+table', 'bowl dining+table', 'chair dining+table', 'cup dining+table'
 # 'initial-transfer', 'initial-tune', 'minimal-tune', 'simple-tune', 'rrr-tune', 'cdep-tt', 'gs-tt', 'fs-tune'
 pairs = ['bottle dining+table',  'chair dining+table']
-modes = ['minimal-tune', 'simple-tune', 'rrr-tune', 'cdep-tt', 'gs-tt', 'fs-tune']
+modes = ['initial-transfer', 'initial-tune', 'minimal-tune', 'simple-tune', 'rrr-tune', 'cdep-tt', 'gs-tt', 'fs-tune']
 p_list = [0.975, 0.95, 0.9, 0.8, 0.6, 0.4, 0.2, 0.1, 0.05, 0.025]
-trials = [0, 1, 2, 3]
+trials = [4, 5, 6, 7]
 num_gpus = 4
 
 # Generate all of the configurations we want to run
