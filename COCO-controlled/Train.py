@@ -1,4 +1,5 @@
 
+import json
 import numpy as np
 import os
 from pathlib import Path
@@ -106,6 +107,7 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
     TT = 'tt' in mode_split
     
     INIT = 'initial' in mode_split
+    AUTO = 'auto' in mode_split
     MIN = 'minimal' in mode_split
     SIM = 'simple' in mode_split
     RRR = 'rrr' in mode_split
@@ -132,6 +134,16 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         names['just_main'] = {'orig': 1.0}
         names['just_spurious'] = {'orig': 1.0}
         names['neither'] = {'orig': 1.0}
+        
+    elif AUTO:
+        with open('./FindAugs/{}/probs.json'.format(p_correct), 'r') as f:
+            probs = json.load(f)
+        
+        names = {}
+        names['both'] = {'orig': 1.0, 'main-box': probs['B2S'], 'spurious-box': probs['B2M']}
+        names['just_main'] = {'orig': 1.0, 'main-box': probs['M2N'], 'just_main+just_spurious': probs['M2B']}
+        names['just_spurious'] = {'orig': 1.0, 'spurious-box': probs['S2N'], 'just_spurious+just_main': probs['S2B']}
+        names['neither'] = {'orig': 1.0, 'neither+just_main': probs['N2M'], 'neither+just_spurious': probs['N2S']}
         
     elif MIN:
         if p_correct > 0.5:
@@ -175,9 +187,18 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
             mode_param = 100.0
         
     elif FS:
-        keys_0 = ['just_main', 'neither']
-        keys_1 = ['both', 'just_spurious']
-        
+        if p_correct < 0.5:
+            split_suppress = 'both'
+            alpha = np.sqrt(num_just_main / num_both)
+        elif p_correct > 0.5:
+            split_suppress = 'just_main'
+            alpha = np.sqrt(num_both / num_just_main)
+        else:
+            print('Error: bad p_correct for this mode')
+            sys.exit(0)
+        if alpha < 20.0:
+            alpha = 20.0
+    
     else:
         print('Error: Unrecognized mode')
         sys.exit(0)
@@ -205,8 +226,8 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         datasets['train'] = ImageDataset_Paired(files_train, labels_train, files_cf_train, labels_cf_train)
         datasets['val'] = ImageDataset_Paired(files_val, labels_val, files_cf_val, labels_cf_val)
     elif FS:
-        files_train, labels_train, contexts_train = load_data_fs(ids_train, images, splits, keys_0, keys_1)
-        files_val, labels_val, contexts_val = load_data_fs(ids_val, images, splits, keys_0, keys_1)
+        files_train, labels_train, contexts_train = load_data_fs(ids_train, images, splits, split_suppress, alpha)
+        files_val, labels_val, contexts_val = load_data_fs(ids_val, images, splits, split_suppress, alpha)
 
         datasets = {}
         datasets['train'] = ImageDataset_FS(files_train, labels_train, contexts_train)
@@ -230,6 +251,8 @@ def train(mode, main, spurious, p_correct, trial, p_main = 0.5, p_spurious = 0.5
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained')
     elif mode == 'initial-tune':
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
+    elif FS:
+        model, optim_params = get_model(mode = 'tune', parent = parent_tune)
     elif TRANS:
         model, optim_params = get_model(mode = 'transfer', parent = parent_transfer)
     elif TT:

@@ -212,11 +212,27 @@ def plot(main, spurious, subdir = None, modes_specified = None, modes_ignored = 
 if __name__ == '__main__':
 
     main = sys.argv[1]
-    spurious = sys.argv[2]
-    plot(main, spurious)
     
-    try:
-        if sys.argv[3] == 'custom':
-            plot(main, spurious, subdir = 'main', modes_specified = ['initial-tune', 'minimal-tune', 'rrr-tune', 'cdep-tt', 'gs-tt', 'fs-tune'])
-    except IndexError:
-        pass
+    if main != 'run-all':
+        spurious = sys.argv[2]
+        plot(main, spurious)
+        
+    else:
+        modes_accepted = ['initial-tune', 'auto-tune', 'rrr-tune', 'cdep-tt', 'gs-tt', 'fs-tune', 'simple-tune']
+        modes_rejected = ['initial-tune']
+        
+        # Accepted pairs
+        plot('bowl', 'person', modes_specified = modes_accepted)
+        plot('bottle', 'person', modes_specified = modes_accepted)
+        plot('car', 'person', modes_specified = modes_accepted)
+        plot('chair', 'person', modes_specified = modes_accepted)
+        plot('cup', 'person', modes_specified = modes_accepted)
+        plot('dining+table', 'person', modes_specified = modes_accepted)
+        plot('chair', 'dining+table', modes_specified = modes_accepted)
+        # Rejected pairs
+        plot('bowl', 'cup', modes_specified = modes_rejected)
+        plot('bottle', 'cup', modes_specified = modes_rejected)
+        plot('chair', 'cup', modes_specified = modes_rejected)
+        plot('bottle', 'dining+table', modes_specified = modes_rejected)
+        plot('bowl', 'dining+table', modes_specified = modes_rejected)
+        plot('cup', 'dining+table', modes_specified = modes_rejected)

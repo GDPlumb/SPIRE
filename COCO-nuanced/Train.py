@@ -148,17 +148,20 @@ def train(mode, label1, label2, spurious, trial,
     
     # Setup the model and optimization process
     parent_transfer = './Models/{}-{}/{}/initial-transfer/trial{}/model.pt'.format(label1, label2, spurious, trial)
+    parent_tune = './Models/{}-{}/{}/initial-tune/trial{}/model.pt'.format(label1, label2, spurious, trial)
     if mode == 'initial-transfer':
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained')
-    elif mode in ['initial-tune', 'removed-tune', 'added-tune', 'combined-tune', 'fs-tune']:
+    elif mode in ['initial-tune', 'removed-tune', 'added-tune', 'combined-tune']:
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer)
+    elif mode in ['fs-tune']:
+        model, optim_params = get_model(mode = 'tune', parent = parent_tune)
     else:
         print('Train.py: Could not determine trainable parameters')
         sys.exit(0)
     
     # Setup the feature hook for getting the representations
     if mode in ['fs-tune']:
-        feature_hook = Features(requires_grad = True)
+        feature_hook = Features()
         handle = list(model.modules())[66].register_forward_hook(feature_hook) # Warning:  this is specific to ResNet18
 
     model.cuda()

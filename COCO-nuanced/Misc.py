@@ -38,6 +38,19 @@ def load_data_random(ids, images, splits, splits_data):
     return files, labels
     
 def load_data_fs(ids, images, splits):
+
+    num_both = len(splits['1s'])
+    num_main = len(splits['1ns'])
+    
+    if num_both >= num_main:
+        split_suppress = '1ns'
+        alpha = np.sqrt(num_both / num_main)
+    else:
+        split_suppress = '1s'
+        alpha = np.sqrt(num_main / num_both)
+    if alpha < 20.0:
+        alpha = 20.0
+    
     files = []
     labels = []
     contexts = [] #1 -> spurious (ie, in context), 0 -> no spurious (ie, out of context)
@@ -46,12 +59,10 @@ def load_data_fs(ids, images, splits):
             if id in splits[key]:
                 files.append(images[id]['orig'][0])
                 labels.append(images[id]['orig'][1])
-                if key in ['1ns', '0ns']:
-                    contexts.append(0)
-                elif key in ['1s', '0s']:
-                    contexts.append(1)
+                if key == split_suppress:
+                    contexts.append(alpha)
                 else:
-                    print('load_data_fs: unexpected key')
+                    contexts.append(0.0)
 
     labels = np.array(labels, dtype = np.float32)
     labels = labels.reshape((labels.shape[0], 1))

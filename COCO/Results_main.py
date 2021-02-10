@@ -12,10 +12,10 @@ if False:
     for i in range(len(classes)):
         modes.append('partial-{}-transfer'.format(i))
 else:
-    modes =  ['initial-tune', 'auto-aug', 'fs-tune']
+    modes = ['fs-tune']
     
 trials = [0, 1, 2, 3]
-num_gpus = 4
+num_gpus = 2
 
 # Generate all of the configurations we want to run
 configs = []

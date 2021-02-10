@@ -28,45 +28,62 @@ def get_h_gap(data):
 
 
 def load_data_fs(ids, images):
-    files = []
-    labels = []
-    contexts = [] #1 -> spurious (ie, in context), 0 -> no spurious (ie, out of context)
     
+    with open('./COCO_cats.json', 'r') as f: #This is a json copy of coco.loadCats(coco.getCatIds())
+        cats = json.load(f)
+        
     with open('./FindSCs.json', 'r') as f:
         pairs = json.load(f)
     
-    ids_context = []
-    spurious_processed = []
+    id_map = {}
     for pair in pairs:
-        spurious = pair.split('-')[1]
-        
-        if spurious not in spurious_processed:
-            with open('{}/train/splits/{}.json'.format(get_data_dir(), pair)) as f:
-                splits = json.load(f)
+        main = pair.split('-')[0].replace('+', ' ')
+        index = None
+        for cat in cats:
+            if cat['name'] == main:
+                index = int(cat['id'])
+
+        with open('{}/train/splits/{}.json'.format(get_data_dir(), pair)) as f:
+            splits = json.load(f)
             
-            for id in splits['both']:
-                ids_context.append(id)
+        num_both = len(splits['both'])
+        num_main = len(splits['just_main'])
+        
+        if num_both >= num_main:
+            split_suppress = 'just_main'
+            alpha = np.sqrt(num_both / num_main)
+        else:
+            split_suppress = 'both'
+            alpha = np.sqrt(num_main / num_both)
+        if alpha < 20.0:
+            alpha = 20.0
+
+        for id in splits[split_suppress]:
+            info = (index, alpha)
+            if id in id_map:
+                id_map[id].append(info)
+            else:
+                id_map[id] = [info]
                 
-            for id in splits['just_spurious']:
-                ids_context.append(id)
-        
-            spurious_processed.append(spurious)
-            
-    ids_context = set(ids_context)
-    
+    files = []
+    labels = []
+    contexts = [] #0 -> do not supress, !0 -> supress and use that weight
     for id in ids:
         img = images[id]['orig']
         files.append(img[0])
         labels.append(img[1])
-        if id in ids_context:
-            contexts.append(1)
-        else:
-            contexts.append(0)
+        c = np.zeros((91))
+        if id in id_map:
+            for info in id_map[id]:
+                index = info[0]
+                alpha = info[1]
+                c[index] = alpha
+        contexts.append(c)
 
     labels = np.array(labels, dtype = np.float32)
     labels = labels.reshape((labels.shape[0], 91))
     
     contexts = np.array(contexts, dtype = np.float32)
-    contexts = contexts.reshape((contexts.shape[0], 1))
+    contexts = contexts.reshape((contexts.shape[0], 91))
     
     return files, labels, contexts

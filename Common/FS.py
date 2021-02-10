@@ -1,6 +1,8 @@
 
 import torch
 
+#c != 0 -> supress the context and weight by c
+#c = 0 -> do not supress and weight by 1
 def fs_loss(rep, rep_avg_running, model, metric_loss, y, c):
 
     batch_size = rep.shape[0]
@@ -33,10 +35,10 @@ def fs_loss(rep, rep_avg_running, model, metric_loss, y, c):
     
     # Calculate the loss
     loss_exclusive = metric_loss(out_exclusive, y)
-    loss_exclusive = torch.mul(loss_exclusive, 1 - c)
+    loss_exclusive = torch.mul(loss_exclusive, c)
 
     loss_non_exclusive = metric_loss(out_non_exclusive, y)
-    loss_non_exclusive = torch.mul(loss_non_exclusive, c)
+    loss_non_exclusive = torch.mul(loss_non_exclusive, 1.0 * (c == 0.0))
 
     loss = loss_exclusive + loss_non_exclusive
     loss = torch.mean(loss)

@@ -182,10 +182,13 @@ def train(mode, trial,
 
     # Setup the model and optimization process
     parent_transfer = './Models/initial-transfer/trial{}/model.pt'.format(trial)
+    parent_tune = './Models/initial-tune/trial{}/model.pt'.format(trial)
     if mode == 'initial-transfer':
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained', out_features = 91)
-    elif mode in ['initial-tune', 'fs-tune']:
+    elif mode in ['initial-tune']:
         model, optim_params = get_model(mode = 'tune', parent = parent_transfer, out_features = 91)
+    elif mode in ['fs-tune']:
+        model, optim_params = get_model(mode = 'tune', parent = parent_tune, out_features = 91)
     elif mode.split('-')[0] == 'partial':
         model, optim_params = get_model(mode = 'transfer', parent = './Models/initial-tune/trial{}/model.pt'.format(trial), out_features = 91)
     else:

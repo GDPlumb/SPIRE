@@ -4,7 +4,7 @@ import os
 from subprocess import Popen
 
 tuples = ['runway street airplane']
-modes = ['initial-transfer', 'initial-tune', 'removed-tune', 'added-tune', 'combined-tune', 'fs-tune']
+modes = ['initial-transfer', 'initial-tune', 'combined-tune', 'fs-tune', 'added-tune', 'removed-tune']
 trials = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 num_gpus = 4
 

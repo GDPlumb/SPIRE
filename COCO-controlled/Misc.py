@@ -108,22 +108,19 @@ def load_data_paired(ids, images, name_cf, aug = False):
     
     return files, labels, files_cf, labels_cf
 
-def load_data_fs(ids, images, splits, keys_0, keys_1):
+def load_data_fs(ids, images, splits, split_supress, alpha):
     files = []
     labels = []
-    contexts = [] #1 -> spurious (ie, in context), 0 -> no spurious (ie, out of context)
+    contexts = []
     for id in ids: # For each image
         for key in splits: # Fine which split it came from
             if id in splits[key]:
                 files.append(images[id]['orig'][0])
                 labels.append(images[id]['orig'][1])
-                if key in keys_0:
-                    contexts.append(0)
-                elif key in keys_1:
-                    contexts.append(1)
+                if key in split_supress:
+                    contexts.append(alpha)
                 else:
-                    print('load_data_fs: unexpected key')
-                    sys.exit(0)
+                    contexts.append(0)
     
     labels = np.array(labels, dtype = np.float32)
     labels = labels.reshape((labels.shape[0], 1))

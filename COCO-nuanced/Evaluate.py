@@ -75,6 +75,17 @@ def evaluate(model_dir, data_dir, min_size = 25, challenge_info = None):
                     
             out[name] = v
         out['cs-avg'] = avg / 4
+        
+        out['cs-h-gap'] = out['c-0ns'] - out['c-0s']
+        out['cs-r-gap'] = out['c-1s'] - out['c-1ns']
+        
+        num_p = len(splits['1s']) + len(splits['1ns'])
+        num_n = len(splits['0s']) + len(splits['0ns'])
+        
+        tp = num_p * 0.5 * (out['c-1s'] + out['c-1ns'])
+        fp = num_n * 0.5 * (2 - out['c-0s'] - out['c-0ns'])
+        
+        out['cs-p'] = tp / (tp + fp + 1e-16)
     
     
     with open('{}/results.json'.format(model_dir), 'w') as f:
