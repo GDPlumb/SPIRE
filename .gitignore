@@ -7,6 +7,7 @@ COCO-controlled/Models/*
 
 COCO-nuanced/Models/*
 
+COCO/0-FindPairs/Identification/*
 COCO/Models/*
 COCO/FindAugs/*
 

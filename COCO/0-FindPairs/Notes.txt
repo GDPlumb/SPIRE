@@ -1,0 +1,8 @@
+
+The 'ReferenceModel' was trained and evaluated just like all of the other models.  
+
+During the code refactoring and cleaning, we plan on re-running the mitigation pipeline from scratch which leaves us with two options:
+1) Train a new model that we will use to identify SPs and then mitigate that (probably slightly different) set of SPs for the new baseline models
+2) Preserve the model that was initially used to identify SPs and then mitigate the original set of SPs for newly trained basline models
+
+Because we identify SPs on one model and then mitigate them for several models (operating under the assumption that those other models also learn those SPs), Option 2 seems preferable because it represents the smallest change to the experimental setup.  

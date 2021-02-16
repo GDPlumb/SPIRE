@@ -9,9 +9,10 @@ class COCOWrapper():
 
     def __init__(self, root = '/home/gregory/Datasets/COCO', mode = 'val', year = '2017'):
     
+        stdout_orig = sys.stdout
         sys.stdout = io.StringIO()
         coco = COCO('{}/annotations/instances_{}{}.json'.format(root, mode, year))
-        sys.stdout = sys.__stdout__
+        sys.stdout = stdout_orig
         cats = coco.loadCats(coco.getCatIds())
         self.coco = coco
         self.cats = cats
