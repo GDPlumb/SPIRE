@@ -7,14 +7,12 @@ import sys
 
 sys.path.insert(0, '../')
 from Config import get_data_dir
-from LoadImages import load_images
 
 sys.path.insert(0, '../../Common')
-from COCOHelper import id_from_path
-from COCOWrapper import COCOWrapper
+from COCOWrapper import COCOWrapper, id_from_path
 from Dataset import ImageDataset, my_dataloader
 from FormatData import mask_images_parallel
-from LoadData import load_data
+from LoadData import load_images, load_data
 from ModelWrapper import ModelWrapper
 from ResNet import get_model
     
@@ -54,7 +52,7 @@ if __name__ == "__main__":
 
     # Setup the COCO Dataset
     data_dir = '{}/{}'.format(get_data_dir(), mode)
-    images = load_images([], data_dir)
+    images = load_images(data_dir, [])
         
     ids = [key for key in images]
     filenames, labels = load_data(ids, images, ['orig'])

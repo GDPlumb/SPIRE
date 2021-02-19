@@ -8,7 +8,7 @@ import random
 import sys
 from torchvision import transforms
 
-from COCOHelper import id_from_path
+from COCOWrapper import id_from_path
 from Dataset import MakeSquare
 
 def get_mask(anns, mask_classes, coco, mode = 'box', unmask = True, unmask_classes = None):

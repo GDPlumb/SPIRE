@@ -8,13 +8,11 @@ sys.path.insert(0, '../')
 from Config import get_data_dir
 
 sys.path.insert(0, '../../Common')
-from COCOHelper import id_from_path
-from COCOWrapper import COCOWrapper
+from COCOWrapper import COCOWrapper, id_from_path
         
 if __name__ == '__main__':
 
-    print('Initial Setup')
-    
+    # Setup
     base_dir = get_data_dir()
     os.system('rm -rf {}'.format(base_dir))
     os.system('mkdir {}'.format(base_dir))
@@ -22,7 +20,6 @@ if __name__ == '__main__':
     for mode in ['val', 'train']:
         mode_dir = '{}/{}'.format(base_dir, mode)
         os.system('mkdir {}'.format(mode_dir))
-        print(mode_dir)
         
         # Get the images
         coco = COCOWrapper(mode = mode)
@@ -55,7 +52,7 @@ if __name__ == '__main__':
         for cat in coco.cats:
             names.append(cat['name'].replace(' ', '+'))
             
-        ids_all = [id_from_path(img['file_name']) for img in coco.get_images_with_cats(None)]
+        ids_all = [id_from_path(img['file_name']) for img in imgs]
            
         name2id = {}
         for name in names:
