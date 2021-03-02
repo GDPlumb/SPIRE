@@ -24,13 +24,11 @@ if __name__ == '__main__':
         # Get the images
         coco = COCOWrapper(mode = mode)
         coco_dir = coco.get_base_dir()
-                
         imgs = coco.get_images_with_cats(None)
-        
-        # images:  maps from Image ID to each available version of that Image (location, label)
+
+        # Create the datastructure to store the images
         images = {}
         for img in imgs:
-        
             id = id_from_path(img['file_name'])
             
             filename = '{}/{}'.format(coco_dir, img['file_name'])
@@ -43,7 +41,6 @@ if __name__ == '__main__':
             
             images[id] = [filename, label]
         
-        # Save
         with open('{}/images.json'.format(mode_dir), 'w') as f:
             json.dump(images, f)
             

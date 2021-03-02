@@ -85,7 +85,7 @@ if __name__ == "__main__":
         
         imgs_spurious = coco.get_images_with_cats([spurious.replace('+', ' ')])
         
-        filenames_tmp, labels_tmp = mask_images_parallel(imgs_spurious, coco.coco, coco.get_base_dir(), save_dir, chosen_id = index_spurious, mode = 'box', unmask = True, use_png = False)
+        filenames_tmp, labels_tmp = mask_images_parallel(imgs_spurious, coco, save_dir, chosen_id = index_spurious, mode = 'box', unmask = True, use_png = False)
 
         dataset_tmp = ImageDataset(filenames_tmp, labels_tmp, get_names = True)
         dataloader_tmp = my_dataloader(dataset_tmp)

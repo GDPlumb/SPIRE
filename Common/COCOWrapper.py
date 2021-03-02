@@ -279,5 +279,16 @@ class COCOWrapper():
             splits[name] = ['{}/{}'.format(base_dir, id2filename[id]) for id in splits[name]]
 
         return splits
+    
+    def construct_id2img(self):
+        imgs = self.get_images_with_cats(None)
+        id2img = {}
+        for img in imgs:
+            id2img[id_from_path(img['file_name'])] = img
+        self.id2img = id2img
+        
+    def get_imgs_by_ids(self, ids):
+        imgs = [self.id2img[id] for id in ids]
+        return imgs
         
         

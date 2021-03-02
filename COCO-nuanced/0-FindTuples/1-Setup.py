@@ -29,10 +29,7 @@ if __name__ == '__main__':
         # Get the image splits
         coco = COCOWrapper(mode = mode)
         coco.setup_caption_maps()
-        
         splits = coco.get_splits_words(label1, label2, spurious)
-        with open('{}/splits.json'.format(mode_dir), 'w') as f:
-            json.dump(splits, f)
     
         # Create the datastructures to store the images
         images = {}
@@ -41,10 +38,17 @@ if __name__ == '__main__':
                 label = 1
             else:
                 label = 0
-              
+            
+            tmp = []
             for filename in splits[name]:
                 id = id_from_path(filename)
+                tmp.append(id)
                 images[id] = [filename, label]
+            splits[name] = tmp
         
         with open('{}/images.json'.format(mode_dir), 'w') as f:
             json.dump(images, f)
+        
+        with open('{}/splits.json'.format(mode_dir), 'w') as f:
+            json.dump(splits, f)
+        

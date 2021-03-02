@@ -3,9 +3,6 @@
 
 import numpy as np
 
-def id_from_path(path):
-    return path.split('/')[-1].split('.')[0].lstrip('0')
-
 def load_data(ids, images, names):
     files = []
     labels = []
