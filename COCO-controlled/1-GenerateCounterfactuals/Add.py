@@ -76,16 +76,14 @@ if __name__ == '__main__':
                 print(save_dir)
                 
                 # Merge the images
-                filenames, labels = add_images_parallel(imgs, imgs_with_object, coco,
+                filenames, _ = add_images_parallel(imgs, imgs_with_object, coco,
                                                         save_dir, 
                                                         chosen_id = chosen_id, mode = 'pixel',
                                                         unmask = unmask, unmask_classes = unmask_classes)
                 
                 # Save the output
                 images = {}
-                for i in range(len(filenames)):
-                    filename = filenames[i]
-                    label = list(labels[i])
+                for filename in filenames:
                     id = id_from_path(filename)
                     images[id] = [filename, label]
 

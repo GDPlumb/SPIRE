@@ -52,12 +52,12 @@ if __name__ == '__main__':
                 # Save the output
                 images = {}
                 for i, id in enumerate(ids):
-                    filename = filenames[i].split('/')[-1][:-3] + 'jpg'
+                    filename = save_dir + '/' + filenames[i].split('/')[-1][:-3] + 'jpg'
                     image = images_painted[i]
                     label = labels[i]
 
                     images[id] = [filename, label]
-                    skimage.io.imsave('{}/{}'.format(save_dir, filename), image)
+                    skimage.io.imsave(filename, image)
 
                 with open('{}/images.json'.format(save_dir), 'w') as f:
                     json.dump(images, f)

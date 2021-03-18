@@ -3,7 +3,8 @@
 *_*.pdf
 *.ipynb_checkpoints
 
-COCO-controlled/Models/*
+COCO-controlled/2-Models/Models/*
+COCO-controlled/2-Models/HPS/*
 
 COCO-nuanced/Models/*
 

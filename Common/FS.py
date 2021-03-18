@@ -4,6 +4,7 @@ import torch
 #c != 0 -> supress the context and weight by c
 #c = 0 -> do not supress and weight by 1
 def fs_loss(rep, rep_avg_running, model, metric_loss, y, c):
+    rep = torch.squeeze(rep)
 
     batch_size = rep.shape[0]
     dim = rep.shape[1]
