@@ -15,9 +15,9 @@ from FormatData import add_images_parallel
 if __name__ == '__main__':
 
     # Configuration
-    label1 = 'runway'
-    label2 = 'street'
-    spurious = 'airplane'
+    label1 = sys.argv[1]
+    label2 = sys.argv[2]
+    spurious = sys.argv[3]
     np.random.seed(get_random_seed())
     
     tuple_dir = '{}/{}-{}/{}'.format(get_data_dir(), label1, label2, spurious)
@@ -68,16 +68,14 @@ if __name__ == '__main__':
             print(save_dir)
             
             # Merge the images
-            filenames, labels = add_images_parallel(imgs, imgs_with_object, coco,
+            filenames, _ = add_images_parallel(imgs, imgs_with_object, coco,
                                                     save_dir, 
                                                     chosen_id = chosen_id, mode = 'pixel',
                                                     unmask = unmask, unmask_classes = unmask_classes)
 
             # Save the output
             images = {}
-            for i in range(len(filenames)):
-                filename = filenames[i]
-                label = list(labels[i])
+            for filename in filenames:
                 id = id_from_path(filename)
                 images[id] = [filename, label]
 

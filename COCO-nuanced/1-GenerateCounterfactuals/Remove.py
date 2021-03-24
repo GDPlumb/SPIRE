@@ -14,9 +14,9 @@ from FormatData import mask_images_parallel
 if __name__ == '__main__':
     
     # Configuration
-    label1 = 'runway'
-    label2 = 'street'
-    spurious = 'airplane'
+    label1 = sys.argv[1]
+    label2 = sys.argv[2]
+    spurious = sys.argv[3]
     
     tuple_dir = '{}/{}-{}/{}'.format(get_data_dir(), label1, label2, spurious)
     

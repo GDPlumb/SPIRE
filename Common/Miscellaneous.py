@@ -2,7 +2,7 @@
 import sys
 
 sys.path.insert(0, '../Common/')
-from COCOHelper import id_from_path
+from COCOWrapper import id_from_path
 from Dataset import ImageDataset, my_dataloader
 from LoadData import load_data
 

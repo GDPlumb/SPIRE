@@ -14,9 +14,9 @@ from FormatData_InPaint import InPaintWrapper
 if __name__ == '__main__':
 
     # Configuration
-    label1 = 'runway'
-    label2 = 'street'
-    spurious = 'airplane'
+    label1 = sys.argv[1]
+    label2 = sys.argv[2]
+    spurious = sys.argv[3]
     
     tuple_dir = '{}/{}-{}/{}'.format(get_data_dir(), label1, label2, spurious)
     
@@ -49,12 +49,12 @@ if __name__ == '__main__':
             # Save the output
             images = {}
             for i, id in enumerate(ids):
-                filename = filenames[i].split('/')[-1][:-3] + 'jpg'
+                filename = save_dir + '/' + filenames[i].split('/')[-1][:-3] + 'jpg'
                 image = images_painted[i]
                 label = labels[i]
                 
                 images[id] = [filename, label]
-                skimage.io.imsave('{}/{}'.format(save_dir, filename), image)
+                skimage.io.imsave(filename, image)
             
             with open('{}/images.json'.format(save_dir), 'w') as f:
                 json.dump(images, f)

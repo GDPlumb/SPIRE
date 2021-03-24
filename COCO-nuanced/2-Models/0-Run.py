@@ -1,32 +1,33 @@
 
 import json
+import numpy as np
 import os
 from subprocess import Popen
+import time
 
 tuples = ['runway street airplane']
-modes = ['initial-transfer', 'initial-tune', 'combined-tune', 'fs-tune', 'added-tune', 'removed-tune']
-trials = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-num_gpus = 4
+#'initial-transfer', 'initial-tune', 'combined-transfer-ptune','added-transfer-ptune', 'removed-transfer-ptune', 'fs-tune-ptune'
+modes = ['combined-transfer-ptune','added-transfer-ptune', 'removed-transfer-ptune']
+trials = [8, 9, 10, 11, 12, 13, 14, 15]
+num_gpus = 3
 
 # Run each tuple in a batch
-for tuple in tuples:
-
+for t in tuples:
+    info = t.split(' ')
+    label1 = info[0]
+    label2 = info[1]
+    spurious = info[2]
+    
     # Generate all of the configurations we want to run
     configs = []
-
-    label1 = tuple.split(' ')[0]
-    label2 = tuple.split(' ')[1]
-    spurious = tuple.split(' ')[2]
     for mode in modes:
         for trial in trials:
-    
             config = {}
             config['label1'] = label1
             config['label2'] = label2
             config['spurious'] = spurious
             config['mode'] = mode
             config['trial'] = trial
-            
             configs.append(config)
         
     # Divide the configs among the workers
@@ -44,12 +45,13 @@ for tuple in tuples:
     # Launch the workers
     commands = []
     for i in range(num_gpus):
-        command = 'CUDA_VISIBLE_DEVICES={} python Results_run.py {}'.format(i, i)
+        command = 'CUDA_VISIBLE_DEVICES={} python Worker.py {}'.format(i, i)
         commands.append(command)
 
-    procs = [Popen(i, shell = True) for i in commands]
+    procs = []
+    for i in commands:
+        procs.append(Popen(i, shell = True))
+        time.sleep(np.random.uniform(4, 6))
+
     for p in procs:
        p.wait()
-
-    # Aggregate the results
-    os.system('python Analysis.py {} {} {}'.format(label1, label2, spurious))
