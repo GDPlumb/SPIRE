@@ -1,0 +1,50 @@
+
+Finding how many images to add to each split
+Sizes
+B 0.007
+M 0.006
+S 0.535
+N 0.452
+P(Main) 0.013
+Deltas
+B 0.0
+M 0.001
+S 0.006
+N 0.089
+
+Finding how to sample to do that
+Augs
+B2M 0.001
+B2S 0.003
+M2N 0.002
+S2N 0.087
+N2M 0.0
+N2S 0.003
+M2B 0.0
+S2B 0.0
+Totals
+B 0.0
+M 0.001
+S 0.006
+N 0.089
+Removing Bias -0.091
+Adding Bias 0.003
+Cost 0.099
+
+Final Results
+Augmented Sizes
+B 0.007
+M 0.007
+S 0.541
+N 0.541
+P(Main) 0.013
+Sampling Probabilities
+B2M 0.096
+B2S 0.407
+M2N 0.363
+S2N 0.162
+N2M 0.001
+N2S 0.007
+M2B 0.0
+S2B 0.0
+

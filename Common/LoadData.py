@@ -102,8 +102,8 @@ def load_data_fs(ids, images, id2info):
         # context != 0 -> suppress and use this weight
         if isinstance(label, int):
             context = np.zeros((1))
-        else:
-            context = np.zeros(label.shape)
+        elif isinstance(label, list):
+            context = np.zeros((len(label)))
         if id in id2info:
             info = id2info[id]
             for pair in info:

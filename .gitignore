@@ -9,6 +9,5 @@ COCO-controlled/2-Models/HPS/*
 COCO-nuanced/2-Models/Models/*
 
 COCO/0-FindPairs/Identification/*
-COCO/Models/*
-COCO/FindAugs/*
+COCO/2-Models/Models/*
 
