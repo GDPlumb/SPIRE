@@ -16,6 +16,7 @@ from COCOWrapper import id_from_path
 from Dataset import ImageDataset, ImageDataset_Paired, ImageDataset_FS, my_dataloader
 from Features import Features
 from LoadData import load_images, load_data, load_data_paired, load_data_fs
+from Miscellaneous import get_map, get_diff
 from ModelWrapper import ModelWrapper
 from ResNet import get_model
 from TrainModel import train_model, counts_batch, acc_agg
@@ -80,6 +81,7 @@ def train(mode, main, spurious, p_correct, trial,
     CDEP = 'cdep' in mode_split
     GS = 'gs' in mode_split
     FS = 'fs' in mode_split
+    HEAVY = 'heavy' in mode_split
     
     # Load default parameters
     if TRANS:
@@ -164,6 +166,19 @@ def train(mode, main, spurious, p_correct, trial,
         id2info = {}
         for id in split_suppress:
             id2info[id] = [(0, alpha)]
+            
+    elif HEAVY:
+        img_types = {}
+        img_types['both-main/pixel-paint'] = 1.0
+        img_types['both-spurious/pixel-paint'] = 1.0
+        img_types['just_main-main/pixel-paint'] = 1.0
+        img_types['just_main+spurious'] = 0.0
+        img_types['just_spurious-spurious/pixel-paint'] = 1.0
+        img_types['just_spurious+main'] = 0.0
+        img_types['neither+main'] = 0.0
+        img_types['neither+spurious'] = 0.0
+        cf_types = [name for name in img_types]
+        img_types['orig'] = 1.0
     
     else:
         print('Error: Unrecognized mode')
@@ -183,7 +198,7 @@ def train(mode, main, spurious, p_correct, trial,
     images = load_images(data_dir, cf_types)
     
     # Setup the data loaders
-    if INIT or AUTO or SIM:
+    if INIT or AUTO or SIM or HEAVY:
         files_train, labels_train = load_data(ids_train, images, img_types)
         files_val, labels_val = load_data(ids_val, images, img_types)
 
@@ -251,7 +266,6 @@ def train(mode, main, spurious, p_correct, trial,
         metric_loss = torch.nn.BCEWithLogitsLoss()
     
     # Train
-    # TODO:  Update the metrics
     model.cuda()
     model = train_model(model, optim_params, dataloaders, metric_loss, counts_batch, acc_agg, name = name,
                         lr_init = lr, select_cutoff = 5, decay_max = 1,
@@ -326,33 +340,6 @@ def evaluate_cf(model_dir, data_dir):
     
     # Get the model's predictions on each images split
     metrics = {}
-    
-    def get_map(wrapper, images, ids, name):
-        files_tmp, labels_tmp = load_data(ids, images, [name])
-        dataset_tmp = ImageDataset(files_tmp, labels_tmp, get_names = True)
-        dataloader_tmp = my_dataloader(dataset_tmp)
-        y_hat, y_true, names = wrapper.predict_dataset(dataloader_tmp)
-        pred_map = {}
-        for i in range(len(y_hat)):
-            pred_map[id_from_path(names[i])] = (1 * (y_hat[i] >= 0.5))[0]
-        return pred_map
-        
-    def get_diff(map1, map2):
-        n = len(map1)
-        changed = 0
-        for key in map1:
-            if map1[key] != map2[key]:
-                changed += 1
-        return changed / n
-    
-    def get_both(map1, map2):
-        counts = np.zeros((2,2))
-        for key in map1:
-            p1 = map1[key]
-            p2 = map2[key]
-            counts[p1, p2] += 1
-        # Return:  Probability of 0 to 1 given 0 to start, Probability of 1 to 0 given 1 to start
-        return [counts[0, 1] / (counts[0, 0] + counts[0, 1]), counts[1, 0] / (counts[1, 0] + counts[1, 1])]
         
     ids = splits['both']
     map_orig = get_map(wrapper, images, ids, 'orig')
