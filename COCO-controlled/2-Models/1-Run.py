@@ -9,7 +9,7 @@ import time
 # 'bottle cup', 'bowl cup', 'chair cup'
 # 'bottle dining+table', 'bowl dining+table', 'chair dining+table', 'cup dining+table'
 
-HPS = 0 # Are we running Hyper Parameter Selection?
+HPS = 1 # Are we running Hyper Parameter Selection?
 num_gpus = 3
 
 if HPS != 1:
@@ -71,7 +71,7 @@ else:
     # 'gs-transfer-ptransfer', 'gs-transfer-ptune', 'gs-tune-ptransfer', 'gs-tune-ptune'
     # 'fs-tune-ptransfer', 'fs-tune-ptune'
     # 'auto-transfer-ptransfer', 'auto-transfer-ptune', 'auto-tune-ptransfer', 'auto-tune-ptune'
-    modes = []
+    modes = ['auto-transfer-ptransfer-paint', 'auto-transfer-ptune-paint', 'auto-tune-ptransfer-paint', 'auto-tune-ptune-paint']
     trials = [0, 1, 2, 3, 4, 5, 6, 7]
     
     # Define the search space

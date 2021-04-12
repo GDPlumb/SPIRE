@@ -76,6 +76,7 @@ def train(mode, main, spurious, p_correct, trial,
     
     INIT = 'initial' in mode_split
     AUTO = 'auto' in mode_split
+    AUTO_paint = AUTO and 'paint' in mode_split 
     SIM = 'simple' in mode_split
     RRR = 'rrr' in mode_split
     CDEP = 'cdep' in mode_split
@@ -102,15 +103,21 @@ def train(mode, main, spurious, p_correct, trial,
         img_types['orig'] = 1.0
         
     elif AUTO:
+        
+        if AUTO_paint:
+            suffix = 'pixel-paint'
+        else:
+            suffix = 'box'
+        
         # Best config according to HPS:  auto-transfer-ptune
         with open('./FindAugs/{}/probs.json'.format(p_correct), 'r') as f:
             probs = json.load(f)  
         img_types = {}
-        img_types['both-main/box'] = probs['B2S']
-        img_types['both-spurious/box'] = probs['B2M']
-        img_types['just_main-main/box'] = probs['M2N']
+        img_types['both-main/{}'.format(suffix)] = probs['B2S']
+        img_types['both-spurious/{}'.format(suffix)] = probs['B2M']
+        img_types['just_main-main/{}'.format(suffix)] = probs['M2N']
         img_types['just_main+spurious'] = probs['M2B']
-        img_types['just_spurious-spurious/box'] = probs['S2N']
+        img_types['just_spurious-spurious/{}'.format(suffix)] = probs['S2N']
         img_types['just_spurious+main'] = probs['S2B']
         img_types['neither+main'] = probs['N2M']
         img_types['neither+spurious'] = probs['N2S']
