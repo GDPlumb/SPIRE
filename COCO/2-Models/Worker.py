@@ -5,6 +5,7 @@ import json
 import numpy as np
 import os
 from pathlib import Path
+import pickle
 from sklearn.model_selection import train_test_split
 import sys
 import time
@@ -17,13 +18,14 @@ sys.path.insert(0, '../../Common/')
 from COCOWrapper import id_from_path
 from Dataset import ImageDataset, ImageDataset_FS, my_dataloader
 from Features import Features
+from Linearize import get_data, get_lm, get_loaders
 from LoadData import load_images, load_data, load_data_fs
 from ModelWrapper import ModelWrapper
-from ResNet import get_model
+from ResNet import get_model, get_linear
 from TrainModel import train_model, counts_batch, fpr_agg
 
 def merge(trial):
-    model = get_model(mode = 'eval', parent = './Models/initial-tune/trial{}/model.pt'.format(trial), out_features = 91)
+    model = get_model(mode = 'eval', parent = './Models/baseline-transfer-ptune/trial{}/model.pt'.format(trial), out_features = 91)
 
     with open('./Categories.json', 'r') as f:
         cats = json.load(f)
@@ -38,9 +40,9 @@ def merge(trial):
                 index = int(cat['id'])
                 break
 
-        model_partial = get_model(mode = 'eval', parent = './Models/partial-{}-transfer-ptune/trial{}/model.pt'.format(i, trial), out_features = 91) 
-        model.fc.bias[index] = model_partial.fc.bias[index]
-        model.fc.weight[index, :] = model_partial.fc.weight[index, :]
+        model_partial = get_linear('./Models/partial-{}-transfer-pbase/trial{}/model.pt'.format(i, trial), out_features = 1) 
+        model.fc.bias[index] = model_partial.linear.bias[0]
+        model.fc.weight[index, :] = model_partial.linear.weight[0, :]
 
     save_dir = './Models/SPIRE/trial{}'.format(trial)
     os.system('rm -rf {}'.format(save_dir))
@@ -58,13 +60,6 @@ def train(mode, trial,
     Path(model_dir).mkdir(parents = True, exist_ok = True)
     
     name = '{}/model'.format(model_dir)
-
-    # Get the ids of the training images for this experiment
-    # By splitting on Image ID, we ensure all counterfactual version of an image are in the same fold
-    data_dir = '{}/train'.format(get_data_dir())
-    images = load_images(data_dir, [])
-    ids = [key for key in images]
-    ids_train, ids_val = train_test_split(ids, test_size = 0.1)
     
     # Get configuration from mode
     mode_split = mode.split('-')
@@ -74,10 +69,22 @@ def train(mode, trial,
     
     PARENT_TRANS = 'ptransfer' in mode_split
     PARENT_TUNE = 'ptune' in mode_split
+    PARENT_BASE = 'pbase' in mode_split
     
     INIT = 'initial' in mode_split
+    BASE = 'baseline' in mode_split
     PART = 'partial' in mode_split
     FS = 'fs' in mode_split
+
+    # Get the ids of the training images for this experiment
+    # By splitting on Image ID, we ensure all counterfactual version of an image are in the same fold
+    data_dir = '{}/train'.format(get_data_dir())
+    images = load_images(data_dir, [])
+    ids = [key for key in images]
+    if BASE or PART:
+        ids_train, ids_val = train_test_split(ids, test_size = 0.25)
+    else:
+        ids_train, ids_val = train_test_split(ids, test_size = 0.1)
     
     # Load default parameters
     if TRANS:
@@ -97,7 +104,7 @@ def train(mode, trial,
     cats_chosen = cats
     
     # Load the mode specific information
-    if INIT:
+    if INIT or BASE:
         img_types = {}
         cf_types = []
         img_types['orig'] = 1.0
@@ -186,7 +193,7 @@ def train(mode, trial,
     images = load_images(data_dir, cf_types)
         
     # Setup the data loaders
-    if INIT or PART:
+    if INIT or BASE or PART:
         files_train, labels_train = load_data(ids_train, images, img_types, indices_preserve = indices)
         files_val, labels_val = load_data(ids_val, images, img_types, indices_preserve = indices)
 
@@ -209,20 +216,26 @@ def train(mode, trial,
     # Setup the model and optimization process
     parent_trans = './Models/initial-transfer/trial{}/model.pt'.format(trial)
     parent_tune = './Models/initial-tune/trial{}/model.pt'.format(trial)
-    if mode == 'initial-transfer':
+    parent_base = './Models/baseline-transfer-ptune/trial{}/model.pt'.format(trial)
+    
+    if INIT and TRANS:
         model, optim_params = get_model(mode = 'transfer', parent = 'pretrained', out_features = 91)
-    elif mode == 'initial-tune':
+    elif INIT and TUNE:
         model, optim_params = get_model(mode = 'tune', parent = parent_trans, out_features = 91)
     elif TRANS:
         if PARENT_TRANS:
             model, optim_params = get_model(mode = 'transfer', parent = parent_trans, out_features = 91)
         elif PARENT_TUNE:
             model, optim_params = get_model(mode = 'transfer', parent = parent_tune, out_features = 91)
+        elif PARENT_BASE:
+            model, optim_params = get_model(mode = 'transfer', parent = parent_base, out_features = 91)
     elif TUNE:
         if PARENT_TRANS:
             model, optim_params = get_model(mode = 'tune', parent = parent_trans, out_features = 91)
         elif PARENT_TUNE:
             model, optim_params = get_model(mode = 'tune', parent = parent_tune, out_features = 91)
+        elif PARENT_BASE:
+            model, optim_params = get_model(mode = 'transfer', parent = parent_base, out_features = 91)
             
     # Setup the feature hook for getting the representations
     # Warning:  this is specific to ResNet18
@@ -239,14 +252,69 @@ def train(mode, trial,
         metric_loss = torch.nn.BCEWithLogitsLoss()
  
     # Train
-    model.cuda()
-    model = train_model(model, optim_params, dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name,
-                        lr_init = lr, select_cutoff = 3, decay_max = 1,
-                        mode = mode, mode_param = mode_param, feature_hook = feature_hook)
-    torch.save(model.state_dict(), '{}.pt'.format(name))
+    if BASE:
+        # Get the tabular representation of the dataset for this model
+        data, labels = get_data(model, dataloaders)
+        
+        def counts_batch_cust(y_hat, y):
+            return counts_batch(y_hat, y, indices = [0])
+        
+        # For each class, we are going to adjust the linear model independently (allows for better model selection)
+        for index in indices:
+            label_indices = [index]
+            
+            name_index = '{}-{}'.format(name, index)
+
+            # Get the linear model from the main model and the dataloaders for this class
+            lm = get_lm(model, label_indices = label_indices)
+            lm.cuda()
+            dataloaders = get_loaders(data, labels, batch_size, label_indices = label_indices)
+            
+            # Train
+            lm = train_model(lm, lm.parameters(), dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name_index,
+                    lr_init = lr, select_cutoff = 3, decay_max = 1, select_metric_index = 0,
+                    mode = mode, mode_param = mode_param, feature_hook = feature_hook)
+            
+            # Clean up the model history saved during training
+            os.system('rm -rf {}'.format(name_index)) 
+            
+            # Set the model's weights 
+            model.fc.bias[index] = lm.linear.bias[0]
+            model.fc.weight[index, :] = lm.linear.weight[0, :]
+            
+        # Save the resulting model    
+        torch.save(model.state_dict(), '{}.pt'.format(name))
+        
+    elif PART:
+        # Get the tabular representation of the dataset for this model
+        data, labels = get_data(model, dataloaders)
+        
+        def counts_batch_cust(y_hat, y):
+            return counts_batch(y_hat, y, indices = [0])
+        
+        # Get the linear model from the main model and the dataloaders for this class
+        lm = get_lm(model, label_indices = indices)
+        lm.cuda()
+        dataloaders = get_loaders(data, labels, batch_size, label_indices = indices)
+                  
+        # Train
+        model = train_model(lm, lm.parameters(), dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name,
+                            lr_init = lr, select_cutoff = 3, decay_max = 1, select_metric_index = 0,
+                            mode = mode, mode_param = mode_param, feature_hook = feature_hook)
+        torch.save(lm.state_dict(), '{}.pt'.format(name))    
+        
+        # Clean up the model history saved during training
+        os.system('rm -rf {}'.format(name))
+             
+    else:
+        model.cuda()
+        model = train_model(model, optim_params, dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name,
+                            lr_init = lr, select_cutoff = 3, decay_max = 1, select_metric_index = 0,
+                            mode = mode, mode_param = mode_param, feature_hook = feature_hook)
+        torch.save(model.state_dict(), '{}.pt'.format(name))
     
-    # Clean up the model history saved during training
-    os.system('rm -rf {}'.format(name))
+        # Clean up the model history saved during training
+        os.system('rm -rf {}'.format(name))
 
 def evaluate(model_dir, data_dir, min_samples = 25):
 
@@ -256,7 +324,7 @@ def evaluate(model_dir, data_dir, min_samples = 25):
     with open('../0-FindPairs/Pairs.json', 'r') as f:
         pairs = json.load(f)
         
-    with open('./Categories.json', 'r') as f: # This is a json copy of coco.loadCats(coco.getCatIds())
+    with open('./Categories.json', 'r') as f:
         cats = json.load(f)
     
     # Setup the model
@@ -266,7 +334,7 @@ def evaluate(model_dir, data_dir, min_samples = 25):
     
     wrapper = ModelWrapper(model, get_names = True)
     
-    # Get the predictions for all of dataset
+    # Get the predictions for all of the original dataset
     ids = [id for id in images]
     files, labels = load_data(ids, images, ['orig'])
     dataset = ImageDataset(files, labels, get_names = True)
@@ -276,23 +344,11 @@ def evaluate(model_dir, data_dir, min_samples = 25):
     data_map = {}
     for i, name in enumerate(names):
         data_map[id_from_path(name)] = [y_hat[i], y_true[i]]
-                
-    # Run the evaluation
+        
     out = {}
-    
-    precision, recall = wrapper.metrics(y_hat, y_true)
-    MAP = 0.0
-    MAR = 0.0
-    for cat in cats:
-        p = precision[cat['id']]
-        MAP += p
-        r = recall[cat['id']]
-        MAR += r
-    MAP /= len(cats)
-    MAR /= len(cats)
-    out['MAP'] = MAP
-    out['MAR'] = MAR
-    
+    out['orig'] = data_map
+                
+    # Find any splits that are too small and get the predictions for those splits from the external data
     for pair in pairs:
         main = pair.split('-')[0]
         spurious = pair.split('-')[1]
@@ -307,69 +363,32 @@ def evaluate(model_dir, data_dir, min_samples = 25):
         with open('{}/splits/{}-{}.json'.format(data_dir, main, spurious), 'r') as f:
             splits = json.load(f)
         
-        # Calculate the accuracy for each split
-        splits_acc = {}
+        # Find any split that is too small 
         for split_name in splits:
             split = splits[split_name]
             n = len(split)
-
-            pred = np.zeros((n))
-            true = np.zeros((n))
-            for i, id in enumerate(split):
-                data_tmp = data_map[id]
-                pred[i] = data_tmp[0][index]
-                true[i] = data_tmp[1][index]
-            
-            if len(pred) >= min_samples:
-                v = np.mean(1 * (pred >= 0.5) == true)
-            else:
-                # Load the ChallengeSet
-                files_cs = glob.glob('../0-FindPairs/ExternalData/{}-{}/*'.format(pair, split_name))
-                n_cs = len(files_cs)
-                if n_cs == 0:
-                    print('Error:  missing external data - ', pair, split_name)
+            if n < min_samples:
+                # Load the external data
+                files_ext = glob.glob('../0-FindPairs/ExternalData/{}-{}/*'.format(pair, split_name))
+                n_ext = len(files_ext)
+                if n_ext < min_samples:
+                    print('Error:  insufficient external data - ', pair, split_name)
                     
                 if split_name in ['both', 'just_main']:
-                    labels_cs = np.ones((n_cs), dtype = np.float32)
+                    labels_ext =  np.ones((n_ext), dtype = np.float32)
                 elif split_name in ['just_spurious', 'neither']:
-                    labels_cs = np.zeros((n_cs), dtype = np.float32)
+                    labels_ext =  np.zeros((n_ext), dtype = np.float32)
                 
-                dataset_cs = ImageDataset(files_cs, labels_cs, get_names = True)
-                dataloader_cs = my_dataloader(dataset_cs)
-                y_hat_cs, y_true_cs, names_cs = wrapper.predict_dataset(dataloader_cs)
-                v = np.mean((y_hat_cs[:, index] >= 0.5) == y_true_cs)
-            
-            out['{}-{}'.format(pair, split_name)] = v
-            splits_acc[split_name] = v
-        
-        # Get some common information for computing metrics
-        for key in splits:
-            splits[key] = len(splits[key])
-        total = splits['both'] + splits['just_main'] + splits['just_spurious'] + splits['neither']
-        p_main = (splits['both'] + splits['just_main']) / total
-        
-        both = splits_acc['both']
-        just_main = splits_acc['just_main']
-        just_spurious = splits_acc['just_spurious']
-        neither = splits_acc['neither']
-
-        # Compute the 'balanced' precision and recall
-        # -  We keep P(Main) from the original dataset
-        # -  We then construct a distribution where Spurious is independent from Main
-        # -  We use either 1/2 or P(Spurious) from the original dataset while doing this
-        p_spurious = 0.5 #(splits['both'] + splits['just_spurious']) / total
-        tp = p_main * (p_spurious * both + (1 - p_spurious) * just_main)
-        fp = (1 - p_main) * (p_spurious * (1 - just_spurious)  + (1 - p_spurious) * (1 -  neither))
-        precision = tp / (tp + fp + 1e-16)
-        out['{}-b-precision'.format(pair)] = precision
-        out['{}-b-recall'.format(pair)] = p_spurious * both + (1 - p_spurious) * just_main
-        
-        # Compute the "gap" metrics
-        out['{}-r-gap'.format(pair)] = both - just_main
-        out['{}-h-gap'.format(pair)] = neither - just_spurious
-
-    with open('{}/results.json'.format(model_dir), 'w') as f:
-        json.dump(out, f)
+                # Get the model's predictions for it
+                dataset_ext = ImageDataset(files_ext, labels_ext, get_names = True)
+                dataloader_ext = my_dataloader(dataset_ext)
+                y_hat_ext, y_true_ext, names_ext = wrapper.predict_dataset(dataloader_ext)
+                
+                # Save these predictions
+                out['{}-{}'.format(pair, split_name)] = [y_hat_ext, y_true_ext]
+                
+    with open('{}/predictions.pkl'.format(model_dir), 'wb') as f:
+        pickle.dump(out, f)
 
 if __name__ == '__main__':
      

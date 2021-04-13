@@ -3,6 +3,8 @@ import sys
 import torch
 from torchvision.models import resnet18
 
+from Linearize import LinearModel
+
 def get_model(out_features = 1, mode = 'tune', parent = 'pretrained'):
     # Load the model
     model = resnet18(pretrained = (parent == 'pretrained'))
@@ -27,3 +29,8 @@ def get_model(out_features = 1, mode = 'tune', parent = 'pretrained'):
     else:
         print('ResNet.py: Could not determine trainable parameters')
         sys.exit(0)
+
+def get_linear(parent, out_features = 1):
+    model = LinearModel(torch.zeros((out_features, 512)), torch.zeros((out_features)))
+    model.load_state_dict(torch.load(parent))
+    return model

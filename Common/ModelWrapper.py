@@ -41,18 +41,3 @@ class ModelWrapper():
         else:
             return y_hat, y_true
         
-    def metrics(self, y_hat, y_true, threshold = 0.5):
-    
-        dim = y_hat.shape[1]
-        
-        y_hat = 1.0 * (y_hat > threshold)
-
-        precision = np.zeros((dim))
-        for i in range(dim):
-            precision[i] = precision_score(np.squeeze(y_true[:, i]), np.squeeze(y_hat[:, i]), zero_division = 0)
-            
-        recall = np.zeros((dim))
-        for i in range(dim):
-            recall[i] = recall_score(np.squeeze(y_true[:, i]), np.squeeze(y_hat[:, i]), zero_division = 0)
-           
-        return precision, recall

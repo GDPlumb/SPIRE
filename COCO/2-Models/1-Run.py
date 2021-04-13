@@ -10,15 +10,15 @@ from Worker import merge
 trials = [0,1,2,3,4,5,6,7]
 num_gpus = 3
 SPIRE = 0
-# 'initial-transfer', 'initial-tune', 'fs-tune-ptune'
-modes = ['fs-tune-ptune'] # Only used if SPIRE == 0
+# 'initial-transfer', 'initial-tune', 'baseline-transfer-ptune', 'fs-tune-pbase'
+modes = ['fs-tune-pbase'] # Only used if SPIRE == 0
 
 if SPIRE == 1:
     with open('./FindAugs/classes.json', 'r') as f:
         classes = json.load(f)
     modes = []
     for i in range(len(classes)):
-        modes.append('partial-{}-transfer-ptune'.format(i))
+        modes.append('partial-{}-transfer-pbase'.format(i))
 elif SPIRE == 2:
     for trial in trials:
         merge(trial)
