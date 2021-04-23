@@ -1,1 +1,1 @@
-{"orig": 1.0, "bench-elephant/both-main/box": 0.3780290484428406, "bench-elephant/neither+spurious": 0.9771285057067871, "bench-elephant/just_main+spurious": 0.7167593240737915, "bench-elephant/just_spurious+main": 0.6813195943832397}
+{"orig": 1.0, "bench-elephant/both-spurious/box": 1.0, "bench-elephant/both-main/box": 1.0}

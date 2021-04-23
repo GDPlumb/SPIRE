@@ -25,14 +25,14 @@ from ResNet import get_model, get_linear
 from TrainModel import train_model, counts_batch, fpr_agg
 
 def merge(trial):
-    model = get_model(mode = 'eval', parent = './Models/baseline-transfer-ptune/trial{}/model.pt'.format(trial), out_features = 91)
+    model = get_model(mode = 'eval', parent = './Models/initial-tune/trial{}/model.pt'.format(trial), out_features = 91)
 
     with open('./Categories.json', 'r') as f:
         cats = json.load(f)
 
     with open('./FindAugs/classes.json', 'r') as f:
         classes = json.load(f)
-    
+
     for i, main in enumerate(classes):
         main = main.replace('+', ' ')
         for cat in cats:
@@ -40,7 +40,7 @@ def merge(trial):
                 index = int(cat['id'])
                 break
 
-        model_partial = get_linear('./Models/partial-{}-transfer-pbase/trial{}/model.pt'.format(i, trial), out_features = 1) 
+        model_partial = get_linear('./Models/partial-{}-transfer-ptune/trial{}/model.pt'.format(i, trial), out_features = 1) 
         model.fc.bias[index] = model_partial.linear.bias[0]
         model.fc.weight[index, :] = model_partial.linear.weight[0, :]
 
@@ -75,16 +75,17 @@ def train(mode, trial,
     BASE = 'baseline' in mode_split
     PART = 'partial' in mode_split
     FS = 'fs' in mode_split
-
+    
     # Get the ids of the training images for this experiment
     # By splitting on Image ID, we ensure all counterfactual version of an image are in the same fold
     data_dir = '{}/train'.format(get_data_dir())
     images = load_images(data_dir, [])
     ids = [key for key in images]
+    split_state = int(trial)
     if BASE or PART:
-        ids_train, ids_val = train_test_split(ids, test_size = 0.25)
+        ids_train, ids_val = train_test_split(ids, test_size = 0.25, random_state = split_state)
     else:
-        ids_train, ids_val = train_test_split(ids, test_size = 0.1)
+        ids_train, ids_val = train_test_split(ids, test_size = 0.1, random_state = split_state)
     
     # Load default parameters
     if TRANS:
@@ -125,7 +126,6 @@ def train(mode, trial,
         # Get the sampling probabilities for this augmentation
         with open('./FindAugs/{}/names.json'.format(main), 'r') as f:
             img_types = json.load(f)
-        
         cf_types = [name for name in img_types]
         cf_types.remove('orig')
         
@@ -200,7 +200,7 @@ def train(mode, trial,
         datasets = {}
         datasets['train'] = ImageDataset(files_train, labels_train)
         datasets['val'] = ImageDataset(files_val, labels_val) 
-    
+
     elif FS:
         files_train, labels_train, contexts_train = load_data_fs(ids_train, images, id2info)
         files_val, labels_val, contexts_val = load_data_fs(ids_val, images, id2info)
