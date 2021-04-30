@@ -3,6 +3,16 @@ from glob import glob
 import json
 import numpy as np
 
+def load_ids(ids, data, prob = 1.0):
+    x = []
+    y = []
+    for i in ids:
+        if i in data and np.random.uniform() <= prob:
+            info = data[i]
+            x.append(info[0])
+            y.append(info[1])
+    return x, y
+
 def load_images(base_dir, cf_types):
     # Get the original images and labels
     with open('{}/images.json'.format(base_dir), 'r') as f:

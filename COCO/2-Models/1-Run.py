@@ -5,24 +5,12 @@ import os
 from subprocess import Popen
 import time
 
-from Worker import merge
+gpu_ids = [0,1,2,3]#,0,1,2,3]
+num_gpus = len(gpu_ids)
 
 trials = [0,1,2,3,4,5,6,7]
-num_gpus = 3
-SPIRE = 2
-# 'initial-transfer', 'initial-tune', 'baseline-transfer-ptune', 'fs-tune-ptune'
-modes = ['fs-tune-ptune'] # Only used if SPIRE == 0
 
-if SPIRE == 1:
-    with open('./FindAugs/classes.json', 'r') as f:
-        classes = json.load(f)
-    modes = []
-    for i in range(len(classes)):
-        modes.append('partial-{}-transfer-ptune'.format(i))
-elif SPIRE == 2:
-    for trial in trials:
-        merge(trial)
-    modes = ['SPIRE']
+modes = ['fs']
 
 # Generate all of the configurations we want to run
 configs = []
@@ -48,7 +36,7 @@ for i in range(num_gpus):
 # Launch the workers
 commands = []
 for i in range(num_gpus):
-    command = 'CUDA_VISIBLE_DEVICES={} python Worker.py {} {}'.format(i, SPIRE, i)
+    command = 'CUDA_VISIBLE_DEVICES={} python Worker.py {}'.format(gpu_ids[i], i)
     commands.append(command)
 
 procs = []

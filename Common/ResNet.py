@@ -3,7 +3,19 @@ import sys
 import torch
 from torchvision.models import resnet18
 
-from Linearize import LinearModel
+from Features import Features
+
+class LinearModel(torch.nn.Module):
+    def __init__(self, W, b):
+        super(LinearModel, self).__init__()
+        linear = torch.nn.Linear(W.shape[0], W.shape[1], bias = True)
+        linear.weight = torch.nn.Parameter(W)
+        linear.bias = torch.nn.Parameter(b)
+        self.linear = linear
+
+    def forward(self, x):
+        out = self.linear(x)
+        return out
 
 def get_model(out_features = 1, mode = 'tune', parent = 'pretrained'):
     # Load the model
@@ -30,7 +42,23 @@ def get_model(out_features = 1, mode = 'tune', parent = 'pretrained'):
         print('ResNet.py: Could not determine trainable parameters')
         sys.exit(0)
 
-def get_linear(parent, out_features = 1):
-    model = LinearModel(torch.zeros((out_features, 512)), torch.zeros((out_features)))
-    model.load_state_dict(torch.load(parent))
-    return model
+def get_features(model):
+    feature_hook = Features()
+    handle = list(model.modules())[66].register_forward_hook(feature_hook)
+    return feature_hook
+    
+def get_lm(model, label_indices = None):
+    if label_indices is not None:
+        lm = LinearModel(model.fc.weight[label_indices, :], model.fc.bias[label_indices])
+    else:
+        lm = LinearModel(model.fc.weight, model.fc.bias)
+    return lm
+
+def set_lm(model, lm, label_indices = None):
+    with torch.no_grad():
+        if label_indices is not None:
+            model.fc.weight[label_indices, :] = lm.linear.weight
+            model.fc.bias[label_indices] = lm.linear.bias
+        else:
+            model.fc.weight = lm.linear.weight
+            model.fc.bias = lm.linear.bias

@@ -6,10 +6,13 @@ import numpy as np
 import os
 from pathlib import Path
 import pickle
+import random
+from sklearn.metrics import auc
 from sklearn.model_selection import train_test_split
 import sys
 import time
 import torch
+from torch.utils.data import TensorDataset
 
 sys.path.insert(0, '../')
 from Config import get_data_dir
@@ -17,39 +20,253 @@ from Config import get_data_dir
 sys.path.insert(0, '../../Common/')
 from COCOWrapper import id_from_path
 from Dataset import ImageDataset, ImageDataset_FS, my_dataloader
-from Features import Features
-from Linearize import get_data, get_lm, get_loaders
-from LoadData import load_images, load_data, load_data_fs
+from LoadData import load_ids, load_data_fs
 from ModelWrapper import ModelWrapper
-from ResNet import get_model, get_linear
+from ResNet import get_model, get_features, get_lm, set_lm
 from TrainModel import train_model, counts_batch, fpr_agg
 
-def merge(trial):
-    model = get_model(mode = 'eval', parent = './Models/initial-tune/trial{}/model.pt'.format(trial), out_features = 91)
+def get_representation(model, filenames, labels):
+    # Setup the model
+    model.cuda()
+    model.eval()
+    
+    # Get the feature layer for the model
+    feature_hook = get_features(model)
+    
+    # Find the model's representations
+    dataset = ImageDataset(filenames, labels, get_names = True)
+    dataloader = my_dataloader(dataset)
+    
+    data = {}
+    for batch in dataloader:
+        x = batch[0].cuda()
+        y = batch[1].numpy()
+        f = batch[2]
 
+        y_hat = model(x)
+        rep = feature_hook.features.data.cpu().numpy()[:, :, 0, 0]
+
+        for i in range(len(y_hat)):
+            data[id_from_path(f[i])] = [rep[i, :], y[i, :]]
+
+    return data
+
+def predict(model, config):
+    # Get the config
+    # If we are running HPS, this loads a large (unused) chunk of the training dataset
+    # Otherwise, it loads the validation dataset and enables us to check the external datasets
+    images = config[0]
+    ids = config[1]
+    external = config[2]
+
+    # Setup the model
+    model.eval()
+    model.cuda()
+    wrapper = ModelWrapper(model, get_names = True)
+    
+    # Get the predictions for all of the original dataset
+    files, labels = load_ids(ids, images)
+    labels = np.array(labels, dtype = np.float32)
+    dataset = ImageDataset(files, labels, get_names = True)
+    dataloader = my_dataloader(dataset)
+    y_hat, y_true, names = wrapper.predict_dataset(dataloader)
+    
+    preds_orig = {}
+    for i, name in enumerate(names):
+        preds_orig[id_from_path(name)] = y_hat[i]
+        
+    out = {}
+    out['orig'] = preds_orig
+                
+    # Get the predictions on the external data
+    if external:
+        for name in glob.glob('../0-FindPairs/ExternalData/*'):
+            files_ext = glob.glob('{}/*'.format(name))
+            n_ext = len(files_ext)
+            labels_ext = -1 * np.ones((n_ext))
+            dataset_ext = ImageDataset(files_ext, labels_ext, get_names = True)
+            dataloader_ext = my_dataloader(dataset_ext)
+            y_hat_ext, y_true_ext, names_ext = wrapper.predict_dataset(dataloader_ext)
+            
+            out[name.split('/')[-1]] = y_hat_ext
+
+    return out
+
+def get_index(pair):
+    main = pair.split('-')[0].replace('+', ' ')
+    
     with open('./Categories.json', 'r') as f:
         cats = json.load(f)
+        
+    for cat in cats:
+        if cat['name'] == main:
+            index = int(cat['id'])
+            break
+            
+    return index
 
-    with open('./FindAugs/classes.json', 'r') as f:
-        classes = json.load(f)
+def get_split_stats(splits):
+    sizes = {}
+    n = 0
+    for name in splits:
+        sizes[name] = len(splits[name])
+        n += sizes[name]
 
-    for i, main in enumerate(classes):
-        main = main.replace('+', ' ')
-        for cat in cats:
-            if cat['name'] == main:
-                index = int(cat['id'])
-                break
+    for name in sizes:
+        sizes[name] /= n
 
-        model_partial = get_linear('./Models/partial-{}-transfer-ptune/trial{}/model.pt'.format(i, trial), out_features = 1) 
-        model.fc.bias[index] = model_partial.linear.bias[0]
-        model.fc.weight[index, :] = model_partial.linear.weight[0, :]
+    B = sizes['both']
+    M = sizes['just_main']
+    S = sizes['just_spurious']
+    N = sizes['neither']
 
-    save_dir = './Models/SPIRE/trial{}'.format(trial)
-    os.system('rm -rf {}'.format(save_dir))
-    Path(save_dir).mkdir(parents = True)
-    torch.save(model.state_dict(), '{}/model.pt'.format(save_dir))
+    P_m = B + M # P(Main)
+    bias = B / (B + M) - (B + S) #P(Spurious | Main) - P(Spurious)
     
-def train(mode, trial,
+    out = {}
+    out['P_m'] = P_m
+    out['bias'] = bias
+    
+    # Calculate the upper bound for SPIRE's sampling probability
+    # - Tries to set P(Spurious | Main) = P(Spurious | not Main)
+    if bias >= 0:      
+        a = 1
+        b = M + S
+        c = M * S - B * N
+
+        delta = (-1.0 * b - np.sqrt(b * b - 4 * a * c)) / (2 * a)
+
+        if delta < 0:
+            delta = (-1.0 * b + np.sqrt(b * b - 4 * a * c)) / (2 * a)
+
+        if delta > B:
+            delta = B
+
+        out['s_p1'] = (delta / B, 'both-main/box')
+        out['s_p2'] = (delta / B, 'both-spurious/box')
+
+    else:
+        delta = (B * N - M * S) / (M - N)
+
+        if delta > M:
+            delta = M
+
+        out['s_p1'] = (delta / M, 'just_main+spurious')
+        out['s_p2'] = (delta / N, 'neither+spurious')
+
+    return out
+
+def get_accs(preds, num = 101):
+    thresholds = np.linspace(0, 1, num = num)
+    
+    accs = {}
+    for name in preds:
+        POS = None
+        if name in ['both', 'just_main']:
+            POS = True
+        elif name in ['just_spurious', 'neither']:
+            POS = False
+        else:
+            print('Warning:  bad name')
+        
+        p = preds[name]
+        n = len(p)
+        p = np.sort(p, axis = 0)        
+        
+        result = np.zeros((num))
+        index = 0
+        for i, t in enumerate(thresholds):
+            while index < n and p[index] < t:
+                index += 1
+            if POS:
+                result[i] = 1 - index / n
+            else:
+                result[i] = index / n
+        
+        accs[name] = result
+    
+    return accs
+
+def get_gaps(accs, num = 101):
+    thresholds = np.linspace(0, 1, num = num)
+        
+    r_gap = np.abs(accs['both'] - accs['just_main'])
+    h_gap = np.abs(accs['just_spurious'] - accs['neither'])
+    
+    out = {}
+    out['r-gap'] = r_gap
+    out['h-gap'] = h_gap
+    out['r-avg'] = auc(thresholds, r_gap)
+    out['h-avg'] = auc(thresholds, h_gap)
+    return out
+
+def get_ap(accs, P_m, P_s_m, P_s_nm):
+    tp = P_m * (P_s_m * accs['both'] + (1 - P_s_m) * accs['just_main'])
+    fp = (1 - P_m) * (P_s_nm * (1 - accs['just_spurious']) + (1 - P_s_nm) * (1 - accs['neither'])) 
+        
+    recall = tp / P_m
+    precision = tp / (tp + fp + 1e-16)
+    precision[np.where(tp == 0.0)] = 1.0
+        
+    out = {}
+    out['precision'] = precision
+    out['recall'] = recall
+    out['AP'] = auc(recall, precision)
+    return out
+
+def get_metrics(pair, preds, index = None, data_split = 'val', max_samples = None):
+    # Get the index of the main object    
+    if index is None:
+        index = get_index(pair)
+
+    # Get the splits
+    with open('{}/{}/splits/{}.json'.format(get_data_dir(), data_split, pair), 'r') as f:
+        splits = json.load(f)
+
+    info = get_split_stats(splits)
+    P_m = info['P_m']
+    
+    # Get the predictions for each split
+    orig = preds['orig']
+    ids = list(orig)    
+    preds_pair = defaultdict(list)
+    for name in splits:
+        # On original images
+        if max_samples is not None:
+            size = min(max_samples, len(splits[name]))
+            ids_split = np.intersect1d(random.sample(splits[name], size), ids)
+        else:           
+            ids_split = np.intersect1d(splits[name], ids)
+            
+        for i in ids_split:
+            preds_pair[name].append(orig[i][index]) 
+
+        # On external images
+        name_ext = '{}-{}'.format(pair, name)
+        if name_ext in preds:
+            for y in preds[name_ext]:
+                preds_pair[name].append(y[index])
+    
+    out = {}
+    
+    # Convert those predictions to accuracies per threshold per split
+    accs = get_accs(preds_pair)
+    for name in accs:
+        out[name] = accs[name]
+
+    # Use those accuracies to get the gap metrics
+    info = get_gaps(accs)
+    for name in info:
+        out[name] = info[name]
+        
+    # Use those accuracies to get the precision recall curve and its stats for the balanced distribution
+    info = get_ap(accs, P_m, 0.5, 0.5)
+    for name in info:
+        out[name] = info[name]
+        
+    return out
+
+def run(mode, trial,
             mp_override = None, lr_override = None, bs_override = None,
             model_dir = None):
     
@@ -64,29 +281,40 @@ def train(mode, trial,
     # Get configuration from mode
     mode_split = mode.split('-')
     
-    TRANS = 'transfer' in mode_split
-    TUNE = 'tune' in mode_split
-    
-    PARENT_TRANS = 'ptransfer' in mode_split
-    PARENT_TUNE = 'ptune' in mode_split
-    PARENT_BASE = 'pbase' in mode_split
+    HPS = 'hps' in mode_split
     
     INIT = 'initial' in mode_split
-    BASE = 'baseline' in mode_split
-    PART = 'partial' in mode_split
+    SPIRE = 'spire' in mode_split
     FS = 'fs' in mode_split
     
-    # Get the ids of the training images for this experiment
-    # By splitting on Image ID, we ensure all counterfactual version of an image are in the same fold
-    data_dir = '{}/train'.format(get_data_dir())
-    images = load_images(data_dir, [])
-    ids = [key for key in images]
-    split_state = int(trial)
-    if BASE or PART:
-        ids_train, ids_val = train_test_split(ids, test_size = 0.25, random_state = split_state)
+    TRANS = 'transfer' in mode_split or SPIRE
+    TUNE = 'tune' in mode_split or FS
+        
+    # Split the dataset
+    # - By splitting on Image ID, we ensure all counterfactual version of an image are in the same fold
+    # - By setting the random_state with the trial number, we ensure that models in the same trial use the same split
+    with open('{}/train/images.json'.format(get_data_dir()), 'r') as f:
+        images = json.load(f)
+    ids = list(images)
+    if HPS:
+        ids_train, ids_val_all = train_test_split(ids, test_size = 0.5, random_state = int(trial))
+        ids_val = random.sample(ids_val_all, int(0.5 * len(ids_train)))
+        
+        def get_eval_config():
+            images_eval = images
+            ids_eval = ids_val_all
+            external_eval = False
+            return images_eval, ids_eval, external_eval
     else:
-        ids_train, ids_val = train_test_split(ids, test_size = 0.1, random_state = split_state)
+        ids_train, ids_val = train_test_split(ids, test_size = 0.1, random_state = int(trial))
     
+        def get_eval_config():
+            with open('{}/val/images.json'.format(get_data_dir()), 'r') as f:
+                images_eval = json.load(f)
+            ids_eval = list(images_eval)
+            external_eval = True
+            return images_eval, ids_eval, external_eval
+        
     # Load default parameters
     if TRANS:
         lr = 0.001
@@ -94,309 +322,430 @@ def train(mode, trial,
         lr = 0.0001
     else:
         print('Error: Could not determine which parameters are to be trained')
-        sys.exit(0)  
+        sys.exit(0)
     
+    select_cutoff = 3
+    decay_max = 1
+    select_metric_index = 0
     mode_param = 0.0
     batch_size = 64
-    
-    # Get the category/label info
-    with open('./Categories.json', 'r') as f: # This is a json copy of coco.loadCats(coco.getCatIds())
-        cats = json.load(f)
-    cats_chosen = cats
-    
-    # Load the mode specific information
-    if INIT or BASE:
-        img_types = {}
-        cf_types = []
-        img_types['orig'] = 1.0
-    
-    elif PART:
-        # Get the name of Main
-        i = int(mode_split[1])
-        with open('./FindAugs/classes.json', 'r') as f:
-            main = json.load(f)[i]
-            
-        # Get the index for Main
-        for cat in cats:
-            if cat['name'] == main.replace('+', ' '):
-                index = int(cat['id'])
-                cats_chosen = [cat] # Overwrite:  Only eval on this category
-                break
-
-        # Get the sampling probabilities for this augmentation
-        with open('./FindAugs/{}/names.json'.format(main), 'r') as f:
-            img_types = json.load(f)
-        cf_types = [name for name in img_types]
-        cf_types.remove('orig')
-        
-    elif FS:
-        cf_types = []
-        
-        with open('../0-FindPairs/Pairs.json', 'r') as f:
-            pairs = json.load(f)
-
-        id2info = defaultdict(list)
-        for pair in pairs:
-            main = pair.split('-')[0].replace('+', ' ')
-            index = None
-            for cat in cats:
-                if cat['name'] == main:
-                    index = int(cat['id'])
-
-            with open('{}/train/splits/{}.json'.format(get_data_dir(), pair)) as f:
-                splits = json.load(f)
-
-            num_both = len(splits['both'])
-            num_main = len(splits['just_main'])
-
-            if num_both >= num_main:
-                split_suppress = 'just_main'
-                alpha = np.sqrt(num_both / num_main)
-            else:
-                split_suppress = 'both'
-                alpha = np.sqrt(num_main / num_both)
-                
-            # Apply the override early because this parameter is not passed to the training function
-            if mp_override is not None:
-                mode_param = mp_override
-            # Best config according to HPS
-            elif mode == 'fs-tune-ptune':
-                mode_param = 1000.0
-            if alpha < mode_param:
-                alpha = mode_param
-
-            for id in splits[split_suppress]:
-                info = (index, alpha)
-                id2info[id].append(info)
-            
-    else:
-        print('Error: Unrecognized mode')
-        sys.exit(0)
-        
-    # Setup the label indices used
-    indices = [int(cat['id']) for cat in cats_chosen]
-    
-    def counts_batch_cust(y_hat, y):
-        return counts_batch(y_hat, y, indices = indices)
-        
-    # Apply parameter overrides
-    if mp_override is not None:
-        mode_param = mp_override
-        
-    if lr_override is not None:
-        lr = lr_override
-        
-    if bs_override is not None:
-        batch_size = bs_override
-        
-    # Load the required images
-    images = load_images(data_dir, cf_types)
-        
-    # Setup the data loaders
-    if INIT or BASE or PART:
-        files_train, labels_train = load_data(ids_train, images, img_types, indices_preserve = indices)
-        files_val, labels_val = load_data(ids_val, images, img_types, indices_preserve = indices)
-
-        datasets = {}
-        datasets['train'] = ImageDataset(files_train, labels_train)
-        datasets['val'] = ImageDataset(files_val, labels_val) 
-
-    elif FS:
-        files_train, labels_train, contexts_train = load_data_fs(ids_train, images, id2info)
-        files_val, labels_val, contexts_val = load_data_fs(ids_val, images, id2info)
-
-        datasets = {}
-        datasets['train'] = ImageDataset_FS(files_train, labels_train, contexts_train)
-        datasets['val'] = ImageDataset_FS(files_val, labels_val, contexts_val)
-
-    dataloaders = {}
-    dataloaders['train'] = my_dataloader(datasets['train'], batch_size = batch_size)
-    dataloaders['val'] = my_dataloader(datasets['val'], batch_size = batch_size)
-
-    # Setup the model and optimization process
-    parent_trans = './Models/initial-transfer/trial{}/model.pt'.format(trial)
-    parent_tune = './Models/initial-tune/trial{}/model.pt'.format(trial)
-    parent_base = './Models/baseline-transfer-ptune/trial{}/model.pt'.format(trial)
-    
-    if INIT and TRANS:
-        model, optim_params = get_model(mode = 'transfer', parent = 'pretrained', out_features = 91)
-    elif INIT and TUNE:
-        model, optim_params = get_model(mode = 'tune', parent = parent_trans, out_features = 91)
-    elif TRANS:
-        if PARENT_TRANS:
-            model, optim_params = get_model(mode = 'transfer', parent = parent_trans, out_features = 91)
-        elif PARENT_TUNE:
-            model, optim_params = get_model(mode = 'transfer', parent = parent_tune, out_features = 91)
-        elif PARENT_BASE:
-            model, optim_params = get_model(mode = 'transfer', parent = parent_base, out_features = 91)
-    elif TUNE:
-        if PARENT_TRANS:
-            model, optim_params = get_model(mode = 'tune', parent = parent_trans, out_features = 91)
-        elif PARENT_TUNE:
-            model, optim_params = get_model(mode = 'tune', parent = parent_tune, out_features = 91)
-        elif PARENT_BASE:
-            model, optim_params = get_model(mode = 'transfer', parent = parent_base, out_features = 91)
-            
-    # Setup the feature hook for getting the representations
-    # Warning:  this is specific to ResNet18
-    if FS:
-        feature_hook = Features()
-        handle = list(model.modules())[66].register_forward_hook(feature_hook)
-    else:
-        feature_hook = None
- 
-    # Setup the loss
+    feature_hook = None
+   
+    # Most models are not using a weighted loss
     if FS:
         metric_loss = torch.nn.BCEWithLogitsLoss(reduction = 'none')
     else:
         metric_loss = torch.nn.BCEWithLogitsLoss()
- 
-    # Train
-    if BASE:
-        # Get the tabular representation of the dataset for this model
-        data, labels = get_data(model, dataloaders)
-        
-        def counts_batch_cust(y_hat, y):
-            return counts_batch(y_hat, y, indices = [0])
-        
-        # For each class, we are going to adjust the linear model independently (allows for better model selection)
-        for index in indices:
-            label_indices = [index]
-            
-            name_index = '{}-{}'.format(name, index)
 
-            # Get the linear model from the main model and the dataloaders for this class
-            lm = get_lm(model, label_indices = label_indices)
-            lm.cuda()
-            dataloaders = get_loaders(data, labels, batch_size, label_indices = label_indices)
-            
-            # Train
-            lm = train_model(lm, lm.parameters(), dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name_index,
-                    lr_init = lr, select_cutoff = 3, decay_max = 1, select_metric_index = 0,
-                    mode = mode, mode_param = mode_param, feature_hook = feature_hook)
-            
-            # Clean up the model history saved during training
-            os.system('rm -rf {}'.format(name_index)) 
-            
-            # Set the model's weights 
-            model.fc.bias[index] = lm.linear.bias[0]
-            model.fc.weight[index, :] = lm.linear.weight[0, :]
-            
-        # Save the resulting model    
-        torch.save(model.state_dict(), '{}.pt'.format(name))
-        
-    elif PART:
-        # Get the tabular representation of the dataset for this model
-        data, labels = get_data(model, dataloaders)
-        
+    # Most models are trained on all classes simultaneously
+    if SPIRE:
         def counts_batch_cust(y_hat, y):
             return counts_batch(y_hat, y, indices = [0])
-        
-        # Get the linear model from the main model and the dataloaders for this class
-        lm = get_lm(model, label_indices = indices)
-        lm.cuda()
-        dataloaders = get_loaders(data, labels, batch_size, label_indices = indices)
-                  
-        # Train
-        model = train_model(lm, lm.parameters(), dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name,
-                            lr_init = lr, select_cutoff = 3, decay_max = 1, select_metric_index = 0,
-                            mode = mode, mode_param = mode_param, feature_hook = feature_hook)
-        torch.save(lm.state_dict(), '{}.pt'.format(name))    
-        
-        # Clean up the model history saved during training
-        os.system('rm -rf {}'.format(name))
-             
     else:
-        model.cuda()
-        model = train_model(model, optim_params, dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name,
-                            lr_init = lr, select_cutoff = 3, decay_max = 1, select_metric_index = 0,
-                            mode = mode, mode_param = mode_param, feature_hook = feature_hook)
-        torch.save(model.state_dict(), '{}.pt'.format(name))
+        with open('./Categories.json', 'r') as f:
+            cats = json.load(f)
+            
+        indices = [int(cat['id']) for cat in cats]
+        
+        def counts_batch_cust(y_hat, y):
+            return counts_batch(y_hat, y, indices = indices)
+        
+    # Setup the data and model; then train
+    if INIT and TRANS:
+        
+        # Setup the dataloaders
+        with open('./Models/pretrained/rep.pkl', 'rb') as f:
+            rep_pretrained = pickle.load(f)
+        
+        dataloaders = {}
+        for config in [('train', ids_train), ('val', ids_val)]:
+            rep_tmp, labels_tmp = load_ids(config[1], rep_pretrained)
+            
+            rep_tmp = np.array(rep_tmp, dtype = np.float32)
+            labels_tmp = np.array(labels_tmp, dtype = np.float32)
+            
+            rep_tmp = torch.Tensor(rep_tmp)
+            labels_tmp = torch.Tensor(labels_tmp)
+            
+            dataset_tmp = TensorDataset(rep_tmp, labels_tmp)
     
-        # Clean up the model history saved during training
+            dataloaders[config[0]] = my_dataloader(dataset_tmp, batch_size = batch_size)
+        
+        # Setup the model
+        model, _ = get_model(mode = 'transfer', parent = 'pretrained', out_features = 91)
+        
+        lm = get_lm(model)
+        optim_params = lm.parameters()
+        lm.cuda()
+        
+        # Train
+        lm = train_model(lm, optim_params, dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name,
+                        lr_init = lr, select_cutoff = select_cutoff, decay_max = decay_max, select_metric_index = select_metric_index,
+                        mode = mode, mode_param = mode_param, feature_hook = feature_hook)
         os.system('rm -rf {}'.format(name))
-
-def evaluate(model_dir, data_dir, min_samples = 25):
-
-    # Load the needed information
-    images = load_images(data_dir, [])
-    
-    with open('../0-FindPairs/Pairs.json', 'r') as f:
-        pairs = json.load(f)
         
-    with open('./Categories.json', 'r') as f:
-        cats = json.load(f)
-    
-    # Setup the model
-    model = get_model(mode = 'eval', parent = '{}/model.pt'.format(model_dir), out_features = 91)
-    model.cuda()
-    model.eval()
-    
-    wrapper = ModelWrapper(model, get_names = True)
-    
-    # Get the predictions for all of the original dataset
-    ids = [id for id in images]
-    files, labels = load_data(ids, images, ['orig'])
-    dataset = ImageDataset(files, labels, get_names = True)
-    dataloader = my_dataloader(dataset)
-    y_hat, y_true, names = wrapper.predict_dataset(dataloader)
-    
-    data_map = {}
-    for i, name in enumerate(names):
-        data_map[id_from_path(name)] = [y_hat[i], y_true[i]]
+        set_lm(model, lm)
+        torch.save(model.state_dict(), '{}.pt'.format(name))
         
-    out = {}
-    out['orig'] = data_map
+    elif INIT and TUNE:
+
+        # Setup the dataloaders
+        dataloaders = {}
+        for config in [('train', ids_train), ('val', ids_val)]:
+            filenames_tmp, labels_tmp = load_ids(config[1], images)
+            
+            labels_tmp = np.array(labels_tmp, dtype = np.float32)
+            
+            dataset_tmp = ImageDataset(filenames_tmp, labels_tmp)
+    
+            dataloaders[config[0]] = my_dataloader(dataset_tmp, batch_size = batch_size)
+            
+        # Setup the model
+        if HPS:
+            parent = './Models/initial-transfer-hps/trial{}/model.pt'.format(trial)
+        else:
+            parent = './Models/initial-transfer/trial{}/model.pt'.format(trial)
+        
+        model, optim_params = get_model(mode = 'tune', parent = parent, out_features = 91)
+        model.cuda()
+        
+        # Train
+        model = train_model(model, optim_params, dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name,
+                        lr_init = lr, select_cutoff = select_cutoff, decay_max = decay_max, select_metric_index = select_metric_index,
+                        mode = mode, mode_param = mode_param, feature_hook = feature_hook)        
+        os.system('rm -rf {}'.format(name))
+        torch.save(model.state_dict(), '{}.pt'.format(name))
+        
+        # Save this model's representation of the dataset
+        filenames, labels = load_ids(ids, images)
+        labels = np.array(labels, dtype = np.float32)
+        data = get_representation(model, filenames, labels)
+        with open('{}/rep.pkl'.format(model_dir), 'wb') as f:
+            pickle.dump(data, f)
+            
+        # Save this model's predictions on the evaluation data
+        out = predict(model, get_eval_config())
+        with open('{}/pred.pkl'.format(model_dir), 'wb') as f:
+            pickle.dump(out, f)
+    
+    elif SPIRE and HPS:
+
+        # Setup the model
+        parent = './Models/initial-tune-hps/trial{}'.format(trial)
+        model, _ = get_model(mode = 'transfer', parent = '{}/model.pt'.format(parent), out_features = 91)
+        model.cuda()
+        
+        # Get the model's representation of the original data
+        with open('{}/rep.pkl'.format(parent), 'rb') as f:
+            rep_pretrained = pickle.load(f)
+
+        # We adjust the weight of the augmentation for each pair independently
+        with open('../0-FindPairs/Pairs.json', 'r') as f:
+            pairs = json.load(f)
+        
+        for pair in pairs: 
+            index = get_index(pair)
+            
+            # Get the upper bound for the sampling probility
+            with open('{}/train/splits/{}.json'.format(get_data_dir(), pair), 'r') as f:
+                splits = json.load(f)
+            
+            stats = get_split_stats(splits)
+            
+            # Load the counterfactuals and get their representations
+            cf_data = {}
+            for key in ['s_p1', 's_p2']:
+                info = stats[key]
+                prob = info[0]
+                cf_name = info[1]
                 
-    # Find any splits that are too small and get the predictions for those splits from the external data
-    for pair in pairs:
-        main = pair.split('-')[0]
-        spurious = pair.split('-')[1]
-        
-        # Get the index that we care about for this pair
-        for cat in cats:
-            if cat['name'] == main.replace('+', ' '):
-                index = int(cat['id'])
-                break
-        
-        # Get the image splits for this pair
-        with open('{}/splits/{}-{}.json'.format(data_dir, main, spurious), 'r') as f:
-            splits = json.load(f)
-        
-        # Find any split that is too small 
-        for split_name in splits:
-            split = splits[split_name]
-            n = len(split)
-            if n < min_samples:
-                # Load the external data
-                files_ext = glob.glob('../0-FindPairs/ExternalData/{}-{}/*'.format(pair, split_name))
-                n_ext = len(files_ext)
-                if n_ext < min_samples:
-                    print('Error:  insufficient external data - ', pair, split_name)
+                with open('{}/train/{}/{}/images.json'.format(get_data_dir(), pair, cf_name), 'r') as f:
+                    cf_images = json.load(f)
+                
+                cf_files, cf_labels = load_ids(ids, cf_images, prob = prob)
+                cf_labels = np.array(cf_labels, dtype = np.float32)
+                
+                if len(cf_files) > 0:
+                    cf_data[key] = get_representation(model, cf_files, cf_labels)
+            
+            # Train and eval for each augmentation weight
+            # Rather than consider many different weights, we consider fewer weights but get more samples per weight
+            scales = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+            num_samples = 5
+            out = {}
+            for scale in scales:
+                scale_ap = 0.0
+                for attempt in range(num_samples):
                     
-                if split_name in ['both', 'just_main']:
-                    labels_ext =  np.ones((n_ext), dtype = np.float32)
-                elif split_name in ['just_spurious', 'neither']:
-                    labels_ext =  np.zeros((n_ext), dtype = np.float32)
-                
-                # Get the model's predictions for it
-                dataset_ext = ImageDataset(files_ext, labels_ext, get_names = True)
-                dataloader_ext = my_dataloader(dataset_ext)
-                y_hat_ext, y_true_ext, names_ext = wrapper.predict_dataset(dataloader_ext)
-                
-                # Save these predictions
-                out['{}-{}'.format(pair, split_name)] = [y_hat_ext, y_true_ext]
-                
-    with open('{}/predictions.pkl'.format(model_dir), 'wb') as f:
-        pickle.dump(out, f)
+                    # Setup the dataloaders
+                    dataloaders = {}
+                    for config in [('train', ids_train), ('val', ids_val_all)]:
+                        ids_tmp = config[1]
 
+                        # Original Data
+                        rep_tmp, labels_tmp = load_ids(ids_tmp, rep_pretrained)
+                        
+                        rep_tmp = np.array(rep_tmp, dtype = np.float32)
+                        labels_tmp = np.array(labels_tmp, dtype = np.float32)
+                        
+                        x = [rep_tmp]
+                        y = [labels_tmp]
+
+                        # Counterfactual data
+                        for key in ['s_p1', 's_p2']:
+                            rep_tmp, labels_tmp = load_ids(ids_tmp, cf_data[key], prob = scale)
+                            if len(rep_tmp) > 0:
+                                rep_tmp = np.array(rep_tmp, dtype = np.float32)
+                                labels_tmp = np.array(labels_tmp, dtype = np.float32)
+                                
+                                x.append(rep_tmp)
+                                y.append(labels_tmp)
+
+                        # Merge and finish setting up dataloaders
+                        x = np.vstack(x)
+                        y = np.expand_dims(np.vstack(y)[:, index], 1)
+
+                        x = torch.Tensor(x)
+                        y = torch.Tensor(y)
+
+                        dataset_tmp = TensorDataset(x, y)
+
+                        dataloaders[config[0]] = my_dataloader(dataset_tmp, batch_size = 1024)              
+
+                    # Get the linear model for this class
+                    lm = get_lm(model, label_indices = [index])
+                    optim_params = lm.parameters()
+                    lm.cuda()
+
+                    # Train
+                    lm = train_model(lm, optim_params, dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name,
+                                    lr_init = lr, select_cutoff = select_cutoff, decay_max = decay_max, select_metric_index = select_metric_index,
+                                    mode = mode, mode_param = mode_param, feature_hook = feature_hook)
+                    os.system('rm -rf {}'.format(name))
+                    os.system('rm {}.png'.format(name))
+
+                    # Eval
+                    rep_eval, _ = load_ids(ids_val_all, rep_pretrained)
+                    rep_eval = torch.Tensor(np.array(rep_eval, dtype = np.float32)).cuda()
+
+                    y_hat_eval = torch.sigmoid(lm.forward(rep_eval)).data.cpu().numpy()
+
+                    preds_orig = {}
+                    for i, v in enumerate(ids_val_all):
+                        preds_orig[v] = y_hat_eval[i]
+                    preds = {'orig': preds_orig}
+                    
+                    info = get_metrics(pair, preds, index = 0, data_split = 'train', max_samples = 500)
+                    scale_ap += info['AP']
+                
+                # Average the estimate for this scale and save
+                out[scale] = scale_ap / num_samples
+                with open('{}/{}_bap.json'.format(model_dir, pair), 'w') as f:
+                    json.dump(out, f)
+
+    elif SPIRE and not HPS:
+        
+        # Setup the model
+        parent = './Models/initial-tune/trial{}'.format(trial)
+        model, _ = get_model(mode = 'transfer', parent = '{}/model.pt'.format(parent), out_features = 91)
+        model.cuda()
+        
+        # Get the model's representation of the original data
+        with open('{}/rep.pkl'.format(parent), 'rb') as f:
+            rep_pretrained = pickle.load(f)
+
+        # We train each class that is part of a SP separately
+        with open('./HPS/spire/spire.json', 'r') as f:
+            mains = json.load(f)
+        
+        for main in mains:
+            
+            index = get_index(main)
+            
+            # Load the counterfactuals and get their representations
+            cf_data = {}
+            for info in mains[main]:
+                prob = info[0]
+                cf_name = info[1]
+                
+                with open('{}/train/{}/images.json'.format(get_data_dir(), cf_name), 'r') as f:
+                    cf_images = json.load(f)
+                
+                cf_files, cf_labels = load_ids(ids, cf_images, prob = prob)
+                cf_labels = np.array(cf_labels, dtype = np.float32)
+                
+                if len(cf_files) > 0:
+                    cf_data[cf_name] = get_representation(model, cf_files, cf_labels)
+              
+            # Setup the dataloaders
+            dataloaders = {}
+            for config in [('train', ids_train), ('val', ids_val)]:
+                ids_tmp = config[1]
+
+                # Original Data
+                rep_tmp, labels_tmp = load_ids(ids_tmp, rep_pretrained)
+                
+                rep_tmp = np.array(rep_tmp, dtype = np.float32)
+                labels_tmp = np.array(labels_tmp, dtype = np.float32)
+                
+                x = [rep_tmp]
+                y = [labels_tmp]
+
+                # Counterfactual data
+                for key in cf_data:
+                    rep_tmp, labels_tmp = load_ids(ids_tmp, cf_data[key])
+                    if len(rep_tmp) > 0:
+                        rep_tmp = np.array(rep_tmp, dtype = np.float32)
+                        labels_tmp = np.array(labels_tmp, dtype = np.float32)
+                        
+                        x.append(rep_tmp)
+                        y.append(labels_tmp)
+
+                # Merge and finish setting up dataloaders
+                x = np.vstack(x)
+                y = np.expand_dims(np.vstack(y)[:, index], 1)
+
+                x = torch.Tensor(x)
+                y = torch.Tensor(y)
+
+                dataset_tmp = TensorDataset(x, y)
+
+                dataloaders[config[0]] = my_dataloader(dataset_tmp, batch_size = batch_size)
+                
+            # Get the linear model for this class
+            lm = get_lm(model, label_indices = [index])
+            optim_params = lm.parameters()
+            lm.cuda()
+
+            # Train
+            name_tmp = '{}-{}'.format(name, main)
+            lm = train_model(lm, optim_params, dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name_tmp,
+                            lr_init = lr, select_cutoff = select_cutoff, decay_max = decay_max, select_metric_index = select_metric_index,
+                            mode = mode, mode_param = mode_param, feature_hook = feature_hook)
+            os.system('rm -rf {}'.format(name_tmp))
+               
+            # Update that class in the main model
+            set_lm(model, lm, label_indices = [index])
+        
+        # Save the final model
+        torch.save(model.state_dict(), '{}.pt'.format(name))
+        
+        # Save this model's predictions on the evaluation data
+        out = predict(model, get_eval_config())
+        with open('{}/pred.pkl'.format(model_dir), 'wb') as f:
+            pickle.dump(out, f)
+            
+    elif FS:
+        
+        # Tweak images to match the format expected by the dataloader for FS
+        images_orig = {}
+        for i in images:
+            images_orig[i] = {'orig': images[i]}
+        
+        # Define when FS uses which features splits and how to weight the examples
+        def fs_info(alpha_min = 1):
+            with open('../0-FindPairs/Pairs.json', 'r') as f:
+                pairs = json.load(f)
+
+            # Create a map from image ID to the indices and weights for the classes whose context should be supressed
+            id2info = defaultdict(list)
+            for pair in pairs:
+                index = get_index(pair)
+
+                # Look at the splits to determine which one needs its context supressed and how much weight to assign it
+                with open('{}/train/splits/{}.json'.format(get_data_dir(), pair)) as f:
+                    splits = json.load(f)
+
+                num_both = len(splits['both'])
+                num_main = len(splits['just_main'])
+
+                if num_both >= num_main:
+                    split_suppress = 'just_main'
+                    alpha = np.sqrt(num_both / num_main)
+                else:
+                    split_suppress = 'both'
+                    alpha = np.sqrt(num_main / num_both)
+                
+                # Apply the lower bound on the weight (this is what is tuned by HPS)
+                if alpha < alpha_min:
+                    alpha = alpha_min
+
+                # Format the output
+                for id in splits[split_suppress]:
+                    info = (index, alpha)
+                    id2info[id].append(info)
+                    
+            return id2info
+        
+        # Either run the HPS search or the final results
+        if HPS:
+            alpha_list =  [1.0, 10.0, 100.0, 1000.0]
+        else:
+            # This is the best value accoring to the HPS
+            with open('./HPS/fs/fs.json', 'r') as f:
+                alpha_list = json.load(f)
+        
+        out = {}   
+        for mode_param in alpha_list:
+            
+            # Get FS info with this hyper parameter
+            id2info = fs_info(alpha_min = mode_param)
+
+            # Setup the dataloaders
+            dataloaders = {}
+            for config in [('train', ids_train), ('val', ids_val)]:
+                filenames_tmp, labels_tmp, contexts_tmp = load_data_fs(config[1], images_orig, id2info)
+                dataset_tmp = ImageDataset_FS(filenames_tmp, labels_tmp, contexts_tmp)
+                dataloaders[config[0]] = my_dataloader(dataset_tmp, batch_size = batch_size)
+            
+            # Setup the model
+            if HPS:
+                parent = './Models/initial-tune-hps/trial{}/model.pt'.format(trial)
+            else:
+                parent = './Models/initial-tune/trial{}/model.pt'.format(trial)
+
+            model, optim_params = get_model(mode = 'tune', parent = parent, out_features = 91)
+            model.cuda()
+
+            feature_hook = get_features(model)
+        
+            # Train
+            model = train_model(model, optim_params, dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name,
+                            lr_init = lr, select_cutoff = select_cutoff, decay_max = decay_max, select_metric_index = select_metric_index,
+                            mode = mode, mode_param = mode_param, feature_hook = feature_hook)        
+            os.system('rm -rf {}'.format(name))
+            
+            if HPS:
+                os.system('rm {}.png'.format(name))
+            else:
+                torch.save(model.state_dict(), '{}.pt'.format(name))    
+
+            # Eval
+            if HPS:
+                pred_eval = predict(model, get_eval_config())
+
+                with open('../0-FindPairs/Pairs.json', 'r') as f:
+                    pairs = json.load(f)
+                
+                v = 0.0
+                for pair in pairs:
+                    index = get_index(pair)
+                    info = get_metrics(pair, pred_eval, index = index, data_split = 'train', max_samples = 500)
+                    v += info['AP']
+                
+                out[mode_param] = v / len(pairs)
+                with open('{}/bmap.json'.format(model_dir), 'w') as f:
+                    json.dump(out, f)
+                
+            else:
+                # Save this model's predictions on the evaluation data
+                out = predict(model, get_eval_config())
+                with open('{}/pred.pkl'.format(model_dir), 'wb') as f:
+                    pickle.dump(out, f)
+          
 if __name__ == '__main__':
      
-    SPIRE = sys.argv[1]  
-    index = sys.argv[2]
-    
-    TRAIN = SPIRE in ['0', '1']
-    EVAL = SPIRE in ['0', '2']
+    index = sys.argv[1]
     
     # Get the chosen settings
     with open('./Models/{}.json'.format(index), 'r') as f:
@@ -408,12 +757,8 @@ if __name__ == '__main__':
         trial = config['trial']
         
         model_dir = './Models/{}/trial{}'.format(mode, trial)
-        data_dir = '{}/val'.format(get_data_dir())
         print(model_dir)
 
-        if TRAIN:
-            train(mode, trial, model_dir = model_dir)
-        if EVAL:
-            evaluate(model_dir, data_dir)
+        run(mode, trial, model_dir = model_dir)
 
         time.sleep(np.random.uniform(4, 6))
