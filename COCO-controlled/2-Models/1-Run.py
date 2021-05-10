@@ -9,13 +9,13 @@ import time
 # 'bottle cup', 'bowl cup', 'chair cup'
 # 'bottle dining+table', 'bowl dining+table', 'chair dining+table', 'cup dining+table'
 
-HPS = 1 # Are we running Hyper Parameter Selection?
+HPS = 0 # Are we running Hyper Parameter Selection?
 num_gpus = 3
 
 if HPS != 1:
     pairs = ['bottle person', 'bowl person', 'car person', 'chair person', 'cup person', 'dining+table person', 'bottle dining+table', 'chair dining+table']
     #modes = ['auto-transfer-ptune', 'simple-transfer-ptune', 'rrr-tune-ptransfer', 'gs-transfer-ptune', 'cdep-transfer-ptune', 'fs-tune-ptune']
-    modes = ['heavy-transfer-ptune']
+    modes = ['qcec-transfer-ptune']
     p_list = [0.025, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.975]
     trials = [0, 1, 2, 3, 4, 5, 6, 7]
 

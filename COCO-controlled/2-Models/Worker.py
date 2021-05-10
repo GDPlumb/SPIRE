@@ -82,7 +82,7 @@ def train(mode, main, spurious, p_correct, trial,
     CDEP = 'cdep' in mode_split
     GS = 'gs' in mode_split
     FS = 'fs' in mode_split
-    HEAVY = 'heavy' in mode_split
+    QCEC = 'qcec' in mode_split
     
     # Load default parameters
     if TRANS:
@@ -174,10 +174,10 @@ def train(mode, main, spurious, p_correct, trial,
         for id in split_suppress:
             id2info[id] = [(0, alpha)]
             
-    elif HEAVY:
+    elif QCEC:
         img_types = {}
-        img_types['both-main/pixel-paint'] = 1.0
-        img_types['both-spurious/pixel-paint'] = 1.0
+        img_types['both-main/pixel-paint'] = 0.5
+        img_types['both-spurious/pixel-paint'] = 0.5
         img_types['just_main-main/pixel-paint'] = 1.0
         img_types['just_main+spurious'] = 0.0
         img_types['just_spurious-spurious/pixel-paint'] = 1.0
@@ -205,7 +205,7 @@ def train(mode, main, spurious, p_correct, trial,
     images = load_images(data_dir, cf_types)
     
     # Setup the data loaders
-    if INIT or AUTO or SIM or HEAVY:
+    if INIT or AUTO or SIM or QCEC:
         files_train, labels_train = load_data(ids_train, images, img_types)
         files_val, labels_val = load_data(ids_val, images, img_types)
 
