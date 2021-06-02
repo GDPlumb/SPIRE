@@ -196,11 +196,9 @@ def get_gaps(accs, num = 101):
     out = {}
     out['r-gap'] = r_gap
     out['h-gap'] = h_gap
-    out['r-avg'] = auc(thresholds, r_gap)
-    out['h-avg'] = auc(thresholds, h_gap)
     return out
 
-def get_ap(accs, P_m, P_s_m, P_s_nm):
+def get_pr(accs, P_m, P_s_m, P_s_nm):
     tp = P_m * (P_s_m * accs['both'] + (1 - P_s_m) * accs['just_main'])
     fp = (1 - P_m) * (P_s_nm * (1 - accs['just_spurious']) + (1 - P_s_nm) * (1 - accs['neither'])) 
         
@@ -211,8 +209,12 @@ def get_ap(accs, P_m, P_s_m, P_s_nm):
     out = {}
     out['precision'] = precision
     out['recall'] = recall
-    out['AP'] = auc(recall, precision)
     return out
+
+def interpolate(x, y, x_t):
+    y_rev = list(reversed(list(y)))
+    x_rev = list(reversed(list(x)))
+    return np.interp(x_t, x_rev, y_rev)
 
 def get_metrics(pair, preds, index = None, data_split = 'val', max_samples = None):
     # Get the index of the main object    
@@ -260,10 +262,14 @@ def get_metrics(pair, preds, index = None, data_split = 'val', max_samples = Non
         out[name] = info[name]
         
     # Use those accuracies to get the precision recall curve and its stats for the balanced distribution
-    info = get_ap(accs, P_m, 0.5, 0.5)
+    info = get_pr(accs, P_m, 0.5, 0.5)
     for name in info:
         out[name] = info[name]
-        
+    
+    thresholds = np.linspace(0, 1, num = 101)
+    pr_curve = interpolate(out['recall'], out['precision'], thresholds)
+    out['ap'] = auc(thresholds, pr_curve)
+    
     return out
 
 def run(mode, trial,
@@ -493,13 +499,14 @@ def run(mode, trial,
 
                         # Counterfactual data
                         for key in ['s_p1', 's_p2']:
-                            rep_tmp, labels_tmp = load_ids(ids_tmp, cf_data[key], prob = scale)
-                            if len(rep_tmp) > 0:
-                                rep_tmp = np.array(rep_tmp, dtype = np.float32)
-                                labels_tmp = np.array(labels_tmp, dtype = np.float32)
-                                
-                                x.append(rep_tmp)
-                                y.append(labels_tmp)
+                            if key in cf_data:
+                                rep_tmp, labels_tmp = load_ids(ids_tmp, cf_data[key], prob = scale)
+                                if len(rep_tmp) > 0:
+                                    rep_tmp = np.array(rep_tmp, dtype = np.float32)
+                                    labels_tmp = np.array(labels_tmp, dtype = np.float32)
+
+                                    x.append(rep_tmp)
+                                    y.append(labels_tmp)
 
                         # Merge and finish setting up dataloaders
                         x = np.vstack(x)
@@ -536,7 +543,7 @@ def run(mode, trial,
                     preds = {'orig': preds_orig}
                     
                     info = get_metrics(pair, preds, index = 0, data_split = 'train', max_samples = 500)
-                    scale_ap += info['AP']
+                    scale_ap += info['ap']
                 
                 # Average the estimate for this scale and save
                 out[scale] = scale_ap / num_samples
@@ -679,7 +686,7 @@ def run(mode, trial,
         
         # Either run the HPS search or the final results
         if HPS:
-            alpha_list =  [1.0, 10.0, 100.0, 1000.0]
+            alpha_list =  [1.0, 10.0, 100.0, 1000.0, 10000.0]
         else:
             # This is the best value accoring to the HPS
             with open('./HPS/fs/fs.json', 'r') as f:
@@ -731,7 +738,7 @@ def run(mode, trial,
                 for pair in pairs:
                     index = get_index(pair)
                     info = get_metrics(pair, pred_eval, index = index, data_split = 'train', max_samples = 500)
-                    v += info['AP']
+                    v += info['ap']
                 
                 out[mode_param] = v / len(pairs)
                 with open('{}/bmap.json'.format(model_dir), 'w') as f:

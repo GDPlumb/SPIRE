@@ -106,12 +106,13 @@ elif mode == 'fs':
             
         for key in results:
             out[key].append(results[key])
-    
+
     key_best = None
     value_best = -1
     for key in out:
-        out[key] = [np.round(np.mean(out[key]), 3), np.round(np.std(out[key]), 3)]
         v = np.mean(out[key])
+        v_std = np.std(out[key])
+        out[key] = [np.round(v, 3), np.round(v_std, 3)]
         if v > value_best:
             value_best = v
             key_best = key

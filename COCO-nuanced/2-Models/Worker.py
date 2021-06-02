@@ -4,6 +4,7 @@ import json
 import numpy as np
 import os
 from pathlib import Path
+import pickle
 from sklearn.model_selection import train_test_split
 import sys
 import time
@@ -208,6 +209,62 @@ def train(mode, label1, label2, spurious, trial,
     
     # Clean up the model history saved during training
     os.system('rm -rf {}'.format(name)) 
+
+# The following 3 functions are based on COCO/2-Models/Worker.py
+def get_accs(preds, num = 101):
+    thresholds = np.linspace(0, 1, num = num)
+    
+    accs = {}
+    for name in preds:
+        POS = None
+        if '1' in name:
+            POS = True
+        elif '0' in name:
+            POS = False
+        else:
+            print('Warning:  bad name')
+        
+        p = preds[name]
+        n = len(p)
+        p = np.sort(p, axis = 0)        
+        
+        result = np.zeros((num))
+        index = 0
+        for i, t in enumerate(thresholds):
+            while index < n and p[index] < t:
+                index += 1
+            if POS:
+                result[i] = 1 - index / n
+            else:
+                result[i] = index / n
+        
+        accs[name] = result
+    
+    return accs    
+
+def get_gaps(accs, num = 101):
+    thresholds = np.linspace(0, 1, num = num)
+        
+    r_gap = np.abs(accs['1s'] - accs['1ns'])
+    h_gap = np.abs(accs['0s'] - accs['0ns'])
+    
+    out = {}
+    out['r-gap'] = r_gap
+    out['h-gap'] = h_gap
+    return out
+
+def get_pr(accs, P_1, P_s_1, P_s_0):
+    tp = P_1 * (P_s_1 * accs['1s'] + (1 - P_s_1) * accs['1ns'])
+    fp = (1 - P_1) * (P_s_0 * (1 - accs['0s']) + (1 - P_s_0) * (1 - accs['0ns'])) 
+        
+    recall = tp / P_1
+    precision = tp / (tp + fp + 1e-16)
+    precision[np.where(tp == 0.0)] = 1.0
+        
+    out = {}
+    out['precision'] = precision
+    out['recall'] = recall
+    return out
     
 def evaluate_acc(model_dir, data_dir, min_size = 25, challenge_info = None):
 
@@ -239,7 +296,7 @@ def evaluate_acc(model_dir, data_dir, min_size = 25, challenge_info = None):
             y_hat, y_true = wrapper.predict_dataset(dataloader_tmp)
             
             v = np.mean(1 * (y_hat >= 0.5) == y_true)
-        out[name] = v
+        out['orig-{}'.format(name)] = v
 
     # Run the Challenge Set evaluation
     if challenge_info is not None:
@@ -247,10 +304,11 @@ def evaluate_acc(model_dir, data_dir, min_size = 25, challenge_info = None):
         label2 = challenge_info[1]
         spurious = challenge_info[2]
         
-        configs = [('{}+{}'.format(label1, spurious), 1, 'c-1s'), \
-                   ('{}-{}'.format(label1, spurious), 1, 'c-1ns'), \
-                   ('{}+{}'.format(label2, spurious), 0, 'c-0s'), \
-                   ('{}-{}'.format(label2, spurious), 0, 'c-0ns')]
+        preds = {}
+        configs = [('{}+{}'.format(label1, spurious), 1, '1s'), \
+                   ('{}-{}'.format(label1, spurious), 1, '1ns'), \
+                   ('{}+{}'.format(label2, spurious), 0, '0s'), \
+                   ('{}-{}'.format(label2, spurious), 0, '0ns')]
         for config in configs:
             folder = config[0]
             label = config[1]
@@ -266,22 +324,24 @@ def evaluate_acc(model_dir, data_dir, min_size = 25, challenge_info = None):
             dataloader_tmp = my_dataloader(dataset_tmp)
 
             y_hat, y_true = wrapper.predict_dataset(dataloader_tmp)
-            v = np.mean(1 * (y_hat >= 0.5) == y_true)                    
-            out[name] = v
+            preds[name] = y_hat
+        
+        accs = get_accs(preds)
+        for name in accs:
+            out[name] = accs[name]
             
-        out['c-r-gap'] = out['c-1s'] - out['c-1ns']  
-        out['c-h-gap'] = out['c-0ns'] - out['c-0s']
+        info = get_gaps(accs)
+        for name in info:
+            out[name] = info[name]
         
-        num_p = len(splits['1s']) + len(splits['1ns'])
-        num_n = len(splits['0s']) + len(splits['0ns'])
+        P_1 = (len(splits['1s']) + len(splits['1ns'])) / (len(splits['1s']) + len(splits['1ns']) + len(splits['0s']) + len(splits['0ns']))
         
-        tp = num_p * 0.5 * (out['c-1s'] + out['c-1ns'])
-        fp = num_n * 0.5 * (2 - out['c-0s'] - out['c-0ns'])
-        
-        out['c-p'] = tp / (tp + fp + 1e-16)
+        info = get_pr(accs, P_1, 0.5, 0.5)
+        for name in info:
+            out[name] = info[name]
     
-    with open('{}/results.json'.format(model_dir), 'w') as f:
-        json.dump(out, f)
+    with open('{}/results.pkl'.format(model_dir), 'wb') as f:
+        pickle.dump(out, f)
         
 def evaluate_cf(model_dir, data_dir):
 

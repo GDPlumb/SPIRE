@@ -7,8 +7,8 @@ import time
 
 tuples = ['runway street airplane']
 #'initial-transfer', 'initial-tune', 'combined-transfer-ptune','added-transfer-ptune', 'removed-transfer-ptune', 'fs-tune-ptune'
-modes = ['combined-transfer-ptune','added-transfer-ptune', 'removed-transfer-ptune']
-trials = [8, 9, 10, 11, 12, 13, 14, 15]
+modes = ['initial-tune', 'combined-transfer-ptune', 'fs-tune-ptune']
+trials = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 num_gpus = 3
 
 # Run each tuple in a batch
