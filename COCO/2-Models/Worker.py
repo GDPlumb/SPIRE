@@ -176,7 +176,7 @@ def get_accs(preds, num = 101):
         result = np.zeros((num))
         index = 0
         for i, t in enumerate(thresholds):
-            while index < n and p[index] < t:
+            while index < n and p[index] <= t:
                 index += 1
             if POS:
                 result[i] = 1 - index / n
@@ -292,6 +292,7 @@ def run(mode, trial,
     INIT = 'initial' in mode_split
     SPIRE = 'spire' in mode_split
     FS = 'fs' in mode_split
+    NA = 'na' in mode_split
     
     TRANS = 'transfer' in mode_split or SPIRE
     TUNE = 'tune' in mode_split or FS
@@ -344,7 +345,7 @@ def run(mode, trial,
         metric_loss = torch.nn.BCEWithLogitsLoss()
 
     # Most models are trained on all classes simultaneously
-    if SPIRE:
+    if SPIRE or NA:
         def counts_batch_cust(y_hat, y):
             return counts_batch(y_hat, y, indices = [0])
     else:
@@ -749,6 +750,92 @@ def run(mode, trial,
                 out = predict(model, get_eval_config())
                 with open('{}/pred.pkl'.format(model_dir), 'wb') as f:
                     pickle.dump(out, f)
+                    
+    elif NA:
+        # Config for the No Annotations test
+        from Config_NoAnns import get_main, get_sampling_prob, project
+        main, index = get_main()
+        sampling_prob = get_sampling_prob()
+
+        # Setup the model
+        parent = './Models/initial-tune/trial{}'.format(trial)
+        model, _ = get_model(mode = 'transfer', parent = '{}/model.pt'.format(parent), out_features = 91)
+        model.cuda()
+        
+        # Get the model's representation of the original data
+        with open('{}/rep.pkl'.format(parent), 'rb') as f:
+            rep_pretrained = pickle.load(f)   
+                       
+        # Load the counterfactuals and get their representations
+        cf_data = {}
+        cf_images = project(rep_pretrained)
+
+        data_tmp = {}
+        for i in ids:
+            if i in cf_images:
+                if np.random.uniform() <  sampling_prob:
+                    data_tmp[i] = cf_images[i]
+
+        cf_data['cf_both'] = data_tmp
+
+        # Setup the dataloaders
+        dataloaders = {}
+        for config in [('train', ids_train), ('val', ids_val)]:
+            ids_tmp = config[1]
+
+            # Original Data
+            rep_tmp, labels_tmp = load_ids(ids_tmp, rep_pretrained)
+
+            rep_tmp = np.array(rep_tmp, dtype = np.float32)
+            labels_tmp = np.array(labels_tmp, dtype = np.float32)
+
+            x = [rep_tmp]
+            y = [labels_tmp]
+
+            # Counterfactual data
+            for key in cf_data:
+                rep_tmp, labels_tmp = load_ids(ids_tmp, cf_data[key])
+
+                if len(rep_tmp) > 0:
+                    rep_tmp = np.array(rep_tmp, dtype = np.float32)
+                    labels_tmp = np.array(labels_tmp, dtype = np.float32)
+
+                    x.append(rep_tmp)
+                    y.append(labels_tmp)
+
+            # Merge and finish setting up dataloaders
+            x = np.vstack(x)
+            y = np.expand_dims(np.vstack(y)[:, index], 1)
+
+            x = torch.Tensor(x)
+            y = torch.Tensor(y)
+
+            dataset_tmp = TensorDataset(x, y)
+
+            dataloaders[config[0]] = my_dataloader(dataset_tmp, batch_size = batch_size)
+
+        # Get the linear model for this class
+        lm = get_lm(model, label_indices = [index])
+        optim_params = lm.parameters()
+        lm.cuda()
+
+        # Train
+        name_tmp = '{}-{}'.format(name, main)
+        lm = train_model(lm, optim_params, dataloaders, metric_loss, counts_batch_cust, fpr_agg, name = name_tmp,
+                        lr_init = lr, select_cutoff = select_cutoff, decay_max = decay_max, select_metric_index = select_metric_index,
+                        mode = mode, mode_param = mode_param, feature_hook = feature_hook)
+        os.system('rm -rf {}'.format(name_tmp))
+
+        # Update that class in the main model
+        set_lm(model, lm, label_indices = [index])
+        
+        # Save the final model
+        torch.save(model.state_dict(), '{}.pt'.format(name))
+        
+        # Save this model's predictions on the evaluation data
+        out = predict(model, get_eval_config())
+        with open('{}/pred.pkl'.format(model_dir), 'wb') as f:
+            pickle.dump(out, f)
           
 if __name__ == '__main__':
      

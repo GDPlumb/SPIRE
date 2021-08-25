@@ -39,7 +39,7 @@ def get_map(preds, data_split = 'val'):
     return np.mean(v)
     
  
-modes = ['initial-tune', 'spire', 'fs']
+modes = ['initial-tune', 'spire', 'fs-3', 'na-transfer']
 trials = [0,1,2,3,4,5,6,7]
 
 data_split = 'val'
