@@ -75,15 +75,22 @@ def unpack_sources(file_dict, keys = None):
 
 class ImageDataset(VisionDataset):
 
-    def __init__(self, filenames, labels, get_names = False):
+    def __init__(self, filenames, labels, get_names = False, objectnet = False):
         transform = get_transform()
         super(ImageDataset, self).__init__(None, None, transform, None)
         self.filenames = filenames
         self.labels = labels
         self.get_names = get_names
+        self.objectnet = objectnet
         
     def __getitem__(self, index):
-        img = self.transform(Image.open(self.filenames[index]).convert('RGB'))
+        img = Image.open(self.filenames[index]).convert('RGB')
+        if self.objectnet:
+            # crop out red border
+            width, height = img.size
+            cropArea = (2, 2, width-2, height-2)
+            img = img.crop(cropArea)
+        img = self.transform(img)
         label = self.labels[index]
         if self.get_names:
             return img, label, self.filenames[index]
