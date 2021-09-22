@@ -14,6 +14,7 @@ from Config import get_working_dir, get_id, get_splits
 
 sys.path.insert(0, '../Common/')
 from Dataset import ImageDataset, ImageDataset_FS, my_dataloader
+from Features import Features
 from MetricUtils import get_accs, get_gaps, get_pr, get_ap
 from ModelWrapper import ModelWrapper
 from ResNet import get_model
@@ -247,7 +248,29 @@ def run(mode, trial,
                     labels_tmp.append(label_tmp)
                                                            
             dataset_tmp = ImageDataset(filenames_tmp, labels_tmp)
-            dataloaders[config[0]] = my_dataloader(dataset_tmp, batch_size = batch_size)       
+            dataloaders[config[0]] = my_dataloader(dataset_tmp, batch_size = batch_size)
+            
+    elif FS:
+        # Ideally, we would suppress the context (ie, patch) for images in Both (ie, Malignant + Patch)
+        # But there are no such images
+        # After experimenting with what split to suppress, this turned out to be the best configuration
+        splits_tmp = get_splits('train', 'model')     
+        dataloaders = {}
+        for config in [('train', ids_train), ('val', ids_val)]:
+            filenames_tmp = []
+            labels_tmp = []
+            contexts_tmp = []
+            for i in config[1]:
+                filenames_tmp.append(dataset[i][0])
+                labels_tmp.append(np.array([dataset[i][1]], dtype = np.float32))
+                context = np.zeros((1), dtype = np.float32)
+                if i in splits_tmp['just_main']:
+                    context[0] = 1.0
+                contexts_tmp.append(context)
+
+            dataset_tmp = ImageDataset_FS(filenames_tmp, labels_tmp, contexts_tmp)
+            dataloaders[config[0]] = my_dataloader(dataset_tmp, batch_size = batch_size)
+            
     
     # Setup the model
     parent_trans = './Models/initial-transfer/trial{}/model.pt'.format(trial)
@@ -259,7 +282,17 @@ def run(mode, trial,
             model, optim_params = get_model(mode = 'tune', parent = parent_trans, out_features = 1)
     elif SPIRE:
         model, optim_params = get_model(mode = 'transfer', parent = parent_tune, out_features = 1)
+    elif FS:
+        model, optim_params = get_model(mode = 'tune', parent = parent_tune, out_features = 1)
     model.cuda()
+    
+    # Setup the feature hook for getting the representations
+    # Warning:  this is specific to ResNet18
+    if FS:
+        feature_hook = Features()
+        handle = list(model.modules())[66].register_forward_hook(feature_hook)
+    else:
+        feature_hook = None    
     
     # Train
     model = train_model(model, optim_params, dataloaders, metric_loss, counts_batch, fpr_agg, 

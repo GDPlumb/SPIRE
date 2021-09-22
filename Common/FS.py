@@ -5,7 +5,9 @@ import torch
 #c = 0 -> do not supress and weight by 1
 def fs_loss(rep, rep_avg_running, model, metric_loss, y, c):
     rep = torch.squeeze(rep)
-
+    if len(rep.shape) == 1: #Fix the shape for a batch_size of 1
+        rep = torch.unsqueeze(rep, 0)
+        
     batch_size = rep.shape[0]
     dim = rep.shape[1]
     priv_len = int(dim / 2)

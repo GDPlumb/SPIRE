@@ -10,7 +10,7 @@ num_gpus = len(gpu_ids)
 
 trials = [0,1,2,3,4,5,6,7]
 
-modes = ['spire-transfer']
+modes = ['fs-tune']
 
 # Generate all of the configurations we want to run
 configs = []

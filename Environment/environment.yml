@@ -11,3 +11,4 @@ dependencies:
   - opencv=3.4.*
   - tqdm=4.46.*
   - nltk=3.5.*
+  - scikit-image=0.18.*
