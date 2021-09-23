@@ -20,6 +20,7 @@ from LoadData import load_images, load_data, load_data_fs
 from Miscellaneous import get_map, get_diff
 from ModelWrapper import ModelWrapper
 from ResNet import get_model
+from sklearn.metrics import average_precision_score
 from TrainModel import train_model, counts_batch, fpr_agg, acc_agg
 
 def train(mode, label1, label2, spurious, trial,
@@ -282,21 +283,33 @@ def evaluate_acc(model_dir, data_dir, min_size = 25, challenge_info = None):
     wrapper = ModelWrapper(model)
         
     # Run the evaluation
+    preds_agg = []
+    true_agg = []
+    
     out = {}
     for name in ['1s', '1ns', '0s', '0ns']:
         ids = splits[name]
         files_tmp, labels_tmp = load_data(ids, images, ['orig'])
         
+        dataset_tmp = ImageDataset(files_tmp, labels_tmp)
+        dataloader_tmp = my_dataloader(dataset_tmp)
+
+        y_hat, y_true = wrapper.predict_dataset(dataloader_tmp)
+        
+        for i in range(y_hat.shape[0]):
+            preds_agg.append(y_hat[i, :])
+            true_agg.append(y_true[i, :])
+            
         if len(files_tmp) < min_size:
             v = -1
         else:
-            dataset_tmp = ImageDataset(files_tmp, labels_tmp)
-            dataloader_tmp = my_dataloader(dataset_tmp)
-            
-            y_hat, y_true = wrapper.predict_dataset(dataloader_tmp)
-            
             v = np.mean(1 * (y_hat >= 0.5) == y_true)
         out['orig-{}'.format(name)] = v
+        
+    preds_agg = np.array(preds_agg)
+    true_agg = np.array(true_agg)
+    
+    out['AP-orig'] = average_precision_score(true_agg[:, 0], preds_agg[:, 0])
 
     # Run the Challenge Set evaluation
     if challenge_info is not None:
