@@ -776,7 +776,7 @@ def run(mode, trial,
                 if np.random.uniform() <  sampling_prob:
                     data_tmp[i] = cf_images[i]
 
-        cf_data['cf_both'] = data_tmp
+        cf_data['cf'] = data_tmp
 
         # Setup the dataloaders
         dataloaders = {}

@@ -30,7 +30,7 @@ def get_confidence():
 def get_sampling_prob():
     return 1.0
 
-# Remove Spurious from Both by projecting across a linear classifier that detects Spurious
+# Add or remove Spurious by projecting across a linear classifier that detects Spurious
 def project(rep):
     confidence = get_confidence()
     _, index_m = get_main()
@@ -48,24 +48,35 @@ def project(rep):
 
     lm = LogisticRegression(random_state = 0, solver = 'sag', max_iter = 1000).fit(x, y[:, index_s])
 
-    both = {}
+    def compare_low(t):
+        return t > confidence
+    
+    def compare_high(t):
+        return t < 1 - confidence            
+            
+    cf = {}
     for i in ids:
         x_tmp = rep[i][0]
         y_tmp = rep[i][1]
-
-        if y_tmp[index_s] == 1 and y_tmp[index_m] == 1:
-
-            x_tmp = np.expand_dims(np.copy(x_tmp), 0)
-
-            while True:
-                prob = lm.predict_proba(x_tmp)[:, index_s]
-                if prob > confidence:
-                    x_tmp -= 0.1 * lm.coef_ 
-                else:
-                    y_tmp = np.copy(y_tmp)
-                    y_tmp[index_s] = 0
-
-                    both[i] = [np.squeeze(x_tmp), y_tmp]
-                    break 
-
-        return both
+        
+        if y_tmp[index_s] == 1:
+            comp = compare_low
+            scale = -0.1
+        else:
+            comp = compare_high
+            scale = 0.1
+            
+        x_tmp = np.expand_dims(np.copy(x_tmp), 0)
+        
+        while True:
+            prob = lm.predict_proba(x_tmp)[0, index_s]
+            
+            if comp(prob):
+                x_tmp += scale * lm.coef_
+            else:
+                y_tmp = np.copy(y_tmp)
+                y_tmp[index_s] = 1 - y_tmp[index_s]
+                cf[i] = [np.squeeze(x_tmp), y_tmp]
+                break  
+                
+    return cf
