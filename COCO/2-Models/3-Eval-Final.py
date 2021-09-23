@@ -11,7 +11,7 @@ from Worker import get_metrics
 sys.path.insert(0, '../')
 from Config import get_data_dir
 
-def get_map(preds, data_split = 'val'):
+def get_ap(preds, data_split = 'val'):
     
     # Get the labels for the dataset
     with open('{}/{}/images.json'.format(get_data_dir(), data_split), 'r') as f:
@@ -31,12 +31,13 @@ def get_map(preds, data_split = 'val'):
     with open('./Categories.json', 'r') as f:
         cats = json.load(f)
         
-    v = []
+    out = {}
     for cat in cats:
         i = cat['id']
-        v.append(average_precision_score(y_true[:, i], y_hat[:, i]))
+        v = average_precision_score(y_true[:, i], y_hat[:, i])
+        out[cat['name']] = v
     
-    return np.mean(v)
+    return out
     
  
 modes = ['initial-tune', 'spire', 'fs-3', 'na-transfer']
@@ -62,7 +63,9 @@ for mode in modes:
             info = get_metrics(pair, preds, data_split = data_split, max_samples = max_samples)
             out[pair] = info
             
-        out['MAP'] = get_map(preds, data_split = data_split)
+        tmp = get_ap(preds, data_split = data_split)
+        out['MAP'] = sum([tmp[key] for key in tmp]) / len(list(tmp))
+        out['AP-orig'] = tmp
 
         with open('{}/results.pkl'.format(model_dir), 'wb') as f:
             pickle.dump(out, f)
