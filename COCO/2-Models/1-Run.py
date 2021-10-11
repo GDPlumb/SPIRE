@@ -5,12 +5,12 @@ import os
 from subprocess import Popen
 import time
 
-gpu_ids = [0,1,2,3,0,1,2,3]
+gpu_ids = [0,1,2,0,1,2,0,1]
 num_gpus = len(gpu_ids)
 
 trials = [0,1,2,3,4,5,6,7]
 
-modes = ['na-transfer']
+modes = ['test-transfer']
 
 # Generate all of the configurations we want to run
 configs = []
