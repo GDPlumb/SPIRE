@@ -84,6 +84,9 @@ def train(mode, main, spurious, p_correct, trial,
     FS = 'fs' in mode_split
     QCEC = 'qcec' in mode_split
     
+    GA = 'ga' in mode_split
+    QA = 'qa' in mode_split
+    
     # Load default parameters
     if TRANS:
         lr = 0.001
@@ -140,7 +143,14 @@ def train(mode, main, spurious, p_correct, trial,
         cf_types = ['both-main/pixel-paint', 'just_main-main/pixel-paint']
         # Best config according to HPS
         if mode == 'gs-transfer-ptune':
-            mode_param = 100.0   
+            mode_param = 100.0 
+            
+    elif GA:
+        img_types = {}
+        img_types['both-main/box'] = 1.0
+        img_types['just_main-main/box'] = 1.0
+        cf_types = [name for name in img_types]
+        img_types['orig'] = 1.0
             
     elif CDEP:
         cf_types = ['both-spurious/pixel', 'just_spurious-spurious/pixel']
@@ -186,6 +196,15 @@ def train(mode, main, spurious, p_correct, trial,
         img_types['neither+spurious'] = 0.0
         cf_types = [name for name in img_types]
         img_types['orig'] = 1.0
+   
+    elif QA:
+        img_types = {}
+        img_types['both-main/box'] = 0.5
+        img_types['both-spurious/box'] = 0.5
+        img_types['just_main-main/box'] = 1.0
+        img_types['just_spurious-spurious/box'] = 1.0
+        cf_types = [name for name in img_types]
+        img_types['orig'] = 1.0
     
     else:
         print('Error: Unrecognized mode')
@@ -205,7 +224,7 @@ def train(mode, main, spurious, p_correct, trial,
     images = load_images(data_dir, cf_types)
     
     # Setup the data loaders
-    if INIT or AUTO or SIM or QCEC:
+    if INIT or AUTO or SIM or QCEC or GA or QA:
         files_train, labels_train = load_data(ids_train, images, img_types)
         files_val, labels_val = load_data(ids_val, images, img_types)
 
